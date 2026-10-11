@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Eventique",
+    "slug": "eventique",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "eventique",
+    "splash": { "image": "./assets/splash.png", "resizeMode": "contain", "backgroundColor": "#FBF7F8" },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.eventique.app" },
+    "android": {
+      "package": "com.eventique.app",
+      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#FFF8F0" },
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
+    },
+    "plugins": [
+      ["expo-image-picker", { "photosPermission": "Eventique uses your photos for your profile picture and vendor portfolio." }],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiUrl": "http://192.168.1.10:4000"
+    }
+  }
+}

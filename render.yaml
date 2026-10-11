@@ -1,0 +1,38 @@
+# One-click deploy on Render: Dashboard -> New -> Blueprint -> pick this repo.
+# You only need to paste MONGO_URI (from a free MongoDB Atlas cluster). Everything else has safe test-mode defaults.
+services:
+  - type: web
+    name: eventique
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUTO_SEED
+        value: "true"
+      - key: OTP_PROVIDER
+        value: dev
+      - key: DEMO_PHONES
+        value: 9876543210,9123456780,9000000001
+      - key: DEMO_OTP
+        value: "123456"
+      - key: ADMIN_INVITE_CODE
+        value: EVQ-ADMIN
+      - key: STORAGE
+        value: local
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
