@@ -7,7 +7,7 @@ const config = {
   port: num(process.env.PORT, 4000),
   env: process.env.NODE_ENV || 'development',
   corsOrigins: list(process.env.CORS_ORIGINS),
-  mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/eventique',
+  mongoUri: (process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/eventique').trim().replace(/^MONGO_URI\s*=\s*/i, '').replace(/^["'<]+|["'>]+$/g, '').trim(),
   jwtSecret: process.env.JWT_SECRET || '',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   otp: {
@@ -49,6 +49,10 @@ if (!config.jwtSecret) {
 }
 if (config.isProd && config.otp.provider === 'dev' && !config.otp.demoPhones.length) {
   console.warn('[config] OTP_PROVIDER=dev in production: OTPs are returned in API responses. Set msg91 or twilio.');
+}
+
+if (!/^mongodb(\+srv)?:\/\//.test(config.mongoUri)) {
+  console.error(`[config] MONGO_URI must start with mongodb+srv:// or mongodb://. It currently starts with "${config.mongoUri.slice(0, 12)}" (${config.mongoUri.length} characters).`);
 }
 
 module.exports = config;
