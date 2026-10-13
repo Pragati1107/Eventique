@@ -827,6 +827,37 @@ input[type=range]{accent-color:var(--ac);width:100%}
 .topbar .row{gap:8px}
 
 @media (max-width:440px){.screen.dash .tb-brand .rolechip{display:none}}
+/* ---- sign up / log in v2 ---- */
+.auth .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.auth .two .field{min-width:0}
+.auth .opt{font-weight:500;color:var(--muted);font-size:11.5px;margin-left:4px;text-transform:none;letter-spacing:0}
+.auth .hint{font-size:12px;color:var(--muted)}
+.auth .ferr{color:var(--bad);font-size:12.5px;min-height:0}
+.auth .ferr:empty{display:none}
+.auth .input.bad{border-color:var(--bad);box-shadow:0 0 0 3px color-mix(in srgb,var(--bad) 14%,transparent)}
+.auth .input select{flex:1;min-width:0;border:0;background:transparent;font:inherit;color:inherit;padding:12px 0;outline:none}
+.auth .input input[type=date]{color-scheme:light dark}
+.auth .check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;cursor:pointer}
+.auth .check input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--ac);flex:none}
+.auth .check a{color:var(--ac);font-weight:600}
+.linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--ac);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.linkbtn.small{font-size:12.5px;font-weight:600;align-self:flex-start;margin-top:2px}
+.su-switch{text-align:center;font-size:13.5px;color:var(--muted)}
+.su-steps{display:flex;align-items:center;gap:10px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.su-steps span{display:flex;align-items:center;gap:6px}
+.su-steps i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line);font-size:11.5px}
+.su-steps span.on{color:var(--fg)}
+.su-steps span.on i{background:var(--ac);border-color:var(--ac);color:#fff}
+.su-steps b{flex:1;height:1.5px;background:var(--line)}
+.su-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.su-sum b{display:block;font-size:15px}
+.su-sum small{color:var(--muted);font-size:12.5px}
+.su-next{display:flex;flex-direction:column;gap:10px}
+.su-next>div{display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:14px}
+.su-next i{font-style:normal;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--ac);color:#fff;font-weight:700;flex:none}
+.su-next b{display:block;font-size:14px}.su-next small{color:var(--muted);font-size:12.5px}
+.auth .role:disabled{opacity:.6}
+@media (max-width:420px){.auth .two{grid-template-columns:1fr}}
 </style>
 
 <div class="stage"><div class="app" id="app" data-role="none"></div></div>
@@ -2338,10 +2369,153 @@ function tourVoice(){try{const vs=speechSynthesis.getVoices();const L=langOf(S.l
   if(S.lang!=='en'&&tr(TOUR[0].say)!==TOUR[0].say){return vs.find(v=>v.lang.replace('_','-').toLowerCase().startsWith(L[0]+'-'))||vs.find(v=>v.lang.toLowerCase().startsWith(L[0]))||'none'}
   return vs.find(v=>/en[-_]IN/i.test(v.lang))||vs.find(v=>/en[-_]GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null}catch(e){return null}}
 
+/* ================= SIGN UP + LOG IN (v2) =================
+   Overrides authBase / setMode / setRole / sendOtp / verifyOtp from app.js.
+   Works on its own (accounts kept in this browser) and with the live server (web/api.js). */
+const ACC_KEY='evq-accounts';
+function accounts(){try{return JSON.parse(localStorage.getItem(ACC_KEY)||'{}')||{}}catch(e){return {}}}
+function saveAccount(a){try{const all=accounts();all[a.phone]=a;localStorage.setItem(ACC_KEY,JSON.stringify(all))}catch(e){}}
+function findAccount(ph){const d=Object.entries(DEMO).find(([,v])=>v.phone===ph);if(d)return {phone:ph,role:d[0],name:d[1].name};return accounts()[ph]||null}
+function suInit(){if(!S.su)S.su={email:'',city:S.city||'Lucknow',cat:'Photography',owner:'',agree:false,adminOpen:false,eventDate:'',invite:''};return S.su}
+const roleWord=r=>({customer:'Customer',vendor:'Vendor',admin:'Admin'})[r]||r;
+
+function authBase(){
+  const su=suInit(),signup=S.mode==='signup',sent=S.otpSent;
+  if(signup&&S.role==='admin'&&!su.adminOpen)S.role='customer';
+  const roles=signup?ROLES.filter(r=>r[0]!=='admin'||su.adminOpen):ROLES;
+  const fld=(id,label,inner,opt,hint)=>`<div class="field"><label for="${id}">${label}${opt?' <span class="opt">optional</span>':''}</label>${inner}${hint?`<div class="hint">${hint}</div>`:''}<div class="ferr" id="e_${id}"></div></div>`;
+  const inp=(id,val,ph,on,extra='')=>`<div class="input"><input id="${id}" value="${esc(val||'')}" placeholder="${ph}" oninput="${on}" ${extra}></div>`;
+  const sel=(id,opts,val,on)=>`<div class="input"><select id="${id}" onchange="${on}">${opts.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
+  const phoneField=fld('ph','Mobile number',`<div class="input"><span class="prefix">+91</span><input id="ph" inputmode="numeric" autocomplete="tel-national" maxlength="10" value="${S.phone}" oninput="S.phone=this.value.replace(/\\D/g,'');this.value=S.phone" placeholder="98765 43210" ${sent?'disabled':''}></div>`,false,signup&&!sent?'We send a 6-digit OTP to verify this number. No password needed.':'');
+  const cities=CITIES.map(c=>c[0]);
+  const cats=CATS.filter(c=>c.active!==false).map(c=>c.name);
+  let details='';
+  if(signup&&!sent){
+    if(S.role==='vendor')details=
+      fld('nm','Business name',inp('nm',S.name,'e.g. Lumière Studios',"S.name=this.value",'autocomplete="organization"'))+
+      fld('own','Your name',inp('own',su.owner,'e.g. Rahul Verma',"S.su.owner=this.value",'autocomplete="name"'))+
+      `<div class="two">${fld('cat','Service category',sel('cat',cats,su.cat,"S.su.cat=this.value"))}${fld('cty','City',sel('cty',cities,su.city,"S.su.city=this.value"))}</div>`;
+    else if(S.role==='admin')details=
+      fld('nm','Full name',inp('nm',S.name,'e.g. Kavya Singh',"S.name=this.value",'autocomplete="name"'))+
+      fld('inv','Admin invite code',inp('inv',su.invite,'Given by the Eventique team',"S.su.invite=this.value"));
+    else details=
+      fld('nm','Full name',inp('nm',S.name,'e.g. Priya Sharma',"S.name=this.value",'autocomplete="name"'))+
+      `<div class="two">${fld('cty','City',sel('cty',cities,su.city,"S.su.city=this.value"))}${fld('evd','Event date',`<div class="input"><input id="evd" type="date" value="${esc(su.eventDate)}" onchange="S.su.eventDate=this.value"></div>`,true)}</div>`;
+    details+=fld('em','Email',inp('em',su.email,'you@example.com',"S.su.email=this.value",'type="email" autocomplete="email"'),true);
+  }
+  const sumBits=[roleWord(S.role)].concat(S.role==='vendor'?[su.cat]:[]).concat(S.role==='admin'?[]:[su.city]);
+  const summary=signup&&sent?`<div class="su-sum"><div><b>${esc(S.name)}</b><small>${esc(sumBits.join(' · '))}</small></div><button class="btn sm soft" onclick="changeNum()"><span>Edit details</span></button></div>`:'';
+  const terms=signup&&!sent?`<label class="check" for="agree"><input type="checkbox" id="agree" ${su.agree?'checked':''} onchange="S.su.agree=this.checked;document.getElementById('e_agree').textContent=''"><span>I agree to the <a href="#" onclick="event.preventDefault();showTerms()">Terms of Service</a> and <a href="#" onclick="event.preventDefault();showTerms()">Privacy Policy</a>.</span></label><div class="ferr" id="e_agree"></div>`:'';
+  const otp=sent?`<div class="field"><label>Enter the OTP sent to +91 ${S.phone}</label><div class="otp" id="otp">${[0,1,2,3,4,5].map(i=>`<input id="o${i}" inputmode="numeric" autocomplete="${i?'off':'one-time-code'}" maxlength="1" aria-label="Digit ${i+1}">`).join('')}</div>
+     <div class="row between" style="font-size:13px"><button class="btn sm soft" onclick="changeNum()"><span>${signup?'Change number':'Change number'}</span></button><span id="rs" class="muted"></span></div></div>`:'';
+  const btn=sent?(signup?'Verify & create account':'Verify & log in'):(signup?'Continue':'Send OTP');
+  const switcher=signup?`<div class="su-switch">Already have an account? <button class="linkbtn" onclick="setMode('login')">Log in</button></div>`
+    :`<div class="su-switch">New to Eventique? <button class="linkbtn" onclick="setMode('signup')">Create an account</button></div>`;
+  const adminLink=signup&&!sent&&!su.adminOpen?`<button class="linkbtn small" onclick="S.su.adminOpen=true;render()">Joining as an admin? Use an invite code</button>`:'';
+  const demo=!signup?`<div class="demo">
+     <div class="row between"><b style="font-size:14px">Demo credentials</b><span class="muted" style="font-size:12px">OTP for all: <code>${DEMO_OTP}</code></span></div>
+     ${ROLES.map(r=>`<div class="crow"><span class="dot" style="background:${r[4]}"></span><span><b>${r[1]}</b> · <code>+91 ${DEMO[r[0]].phone}</code></span><button class="btn sm soft" onclick="useDemo('${r[0]}')"><span>Use</span></button></div>`).join('')}
+     <div class="muted" style="font-size:12px">Tap "Use" to fill in the number and OTP automatically.</div></div>`
+    :(S.role==='admin'?`<div class="muted" style="font-size:12px">Demo admin invite code: <code>${ADMIN_CODE}</code></div>`:'');
+  return `<div class="screen"><div class="topbar"><button class="iconbtn" onclick="goScreen('welcome')" aria-label="Back">${ic('back')}</button><span class="row" style="gap:6px"><img src="${LOGO_E}" alt="" style="width:30px;height:30px;border-radius:50%;flex:none"><span class="brandmark">Eventique</span></span>${themeBtn()}</div>
+  <div class="scroll" style="padding-bottom:40px"><div class="auth" style="padding:0">
+   <div><h2 style="font-size:28px">${signup?'Create your account':'Welcome back'}</h2><div class="muted">${signup?'Join Eventique in under a minute. Just your details and a mobile OTP.':'Log in with your mobile number. We will send a 6-digit OTP.'}</div></div>
+   <div class="seg"><button class="${!signup?'on':''}" onclick="setMode('login')">Log in</button><button class="${signup?'on':''}" onclick="setMode('signup')">Create account</button></div>
+   ${signup?`<div class="su-steps"><span class="on"><i>1</i>Your details</span><b></b><span class="${sent?'on':''}"><i>2</i>Verify mobile</span></div>`:''}
+   ${sent&&signup?'':`<div class="field"><label>${signup?'I am joining as':'Continue as'}</label><div class="roles" style="grid-template-columns:repeat(${roles.length},1fr)">${roles.map(r=>`<button class="role ${S.role===r[0]?'on':''}" data-r="${r[0]}" onclick="setRole('${r[0]}')" ${sent?'disabled':''}><span class="sw">${ic(r[3],sm)}</span>${r[1]}<small>${signup?({customer:'Plan my event',vendor:'List my services',admin:'Manage the app'})[r[0]]:r[2]}</small></button>`).join('')}</div>${adminLink}</div>`}
+   ${summary}${details}${phoneField}${terms}${otp}
+   <div class="err" id="err"></div>
+   <button class="btn block mirror" onclick="${sent?'verifyOtp()':'sendOtp()'}"><span>${btn}</span></button>
+   ${switcher}
+   ${demo}
+  </div></div></div>`;
+}
+function setMode(m){S.mode=m;S.otpSent=false;suInit();render()}
+function setRole(r){S.role=r;S.otpSent=false;render()}
+function goSignup(){S.mode='signup';S.otpSent=false;render();setTimeout(()=>document.getElementById('nm')?.focus(),80)}
+function goLogin(role){S.mode='login';if(role)S.role=role;S.otpSent=false;render()}
+function showTerms(){openSheet(`<div class="stack"><h3 style="font-size:20px">Terms and privacy</h3>
+  <div class="muted" style="font-size:13.5px;line-height:1.55">By creating an account you agree that Eventique connects customers with independent vendors. Bookings are contracts between you and the vendor; Eventique holds the advance payment and applies the refund rules shown before you pay. Vendors must provide true business details and documents, which our team verifies before the profile goes live.<br><br>We use your mobile number to log you in and to send booking updates. Your email is optional and used only for receipts. We never sell your data, and you can ask us to delete your account at any time.</div>
+  <button class="btn block" onclick="S.su.agree=true;closeSheet();render()"><span>I agree</span></button></div>`)}
+
+function setFieldErr(id,msg){const e=document.getElementById('e_'+id);if(e)e.textContent=msg;const i=document.getElementById(id);if(i){const w=i.closest('.input');if(w)w.classList.toggle('bad',!!msg)}}
+function clearAuthErrs(){document.querySelectorAll('.ferr').forEach(e=>e.textContent='');document.querySelectorAll('.input.bad').forEach(e=>e.classList.remove('bad'));const e=document.getElementById('err');if(e)e.innerHTML=''}
+function validateSignup(){
+  const su=suInit();let ok=true,first=null;const bad=(id,m)=>{setFieldErr(id,m);ok=false;if(!first)first=id};
+  const nm=(S.name||'').trim();
+  if(S.role==='vendor'){
+    if(nm.length<2)bad('nm','Enter your business name.');
+    if(!/^[A-Za-zÀ-ɏ .'-]{2,60}$/.test((su.owner||'').trim()))bad('own','Enter your name, using letters only.');
+  }else if(!/^[A-Za-zÀ-ɏ .'-]{2,60}$/.test(nm))bad('nm','Enter your full name, using letters only.');
+  if(S.role==='admin'&&(su.invite||'').trim().toUpperCase()!==ADMIN_CODE)bad('inv','That invite code is not valid.');
+  if(su.email.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(su.email.trim()))bad('em','Enter a valid email, or leave it empty.');
+  if(su.eventDate&&su.eventDate<new Date().toISOString().slice(0,10))bad('evd','Choose a date in the future.');
+  if(!/^[6-9]\d{9}$/.test(S.phone))bad('ph','Enter a valid 10-digit Indian mobile number.');
+  if(!su.agree){setFieldErr('agree','Please accept the terms to continue.');ok=false}
+  if(first)document.getElementById(first)?.focus();
+  return ok;
+}
+function authErr(html){const e=document.getElementById('err');if(e)e.innerHTML=html}
+
+/* Offline/demo version. web/api.js replaces these two with server calls when the live server is running. */
+function sendOtp(fill){
+  clearAuthErrs();
+  if(S.mode==='signup'){
+    if(!validateSignup())return;
+    const a=findAccount(S.phone);
+    if(a){authErr(`This number already has a ${roleWord(a.role).toLowerCase()} account. <button class="linkbtn" onclick="goLogin('${a.role}')">Log in instead</button>`);return}
+  }else{
+    if(!/^[6-9]\d{9}$/.test(S.phone)){setFieldErr('ph','Enter a valid 10-digit Indian mobile number.');return}
+    const a=findAccount(S.phone);
+    if(!a){authErr(`No account found for +91 ${S.phone}. <button class="linkbtn" onclick="goSignup()">Create an account</button>`);return}
+    if(a.role!==S.role){authErr(`This number is registered as a ${roleWord(a.role).toLowerCase()}. <button class="linkbtn" onclick="setRole('${a.role}')">Log in as ${roleWord(a.role)}</button>`);return}
+  }
+  const isDemo=Object.values(DEMO).some(d=>d.phone===S.phone);
+  S.otp=isDemo?DEMO_OTP:String(Math.floor(100000+Math.random()*900000));S.otpSent=true;render();
+  const sms=document.getElementById('sms');sms.innerHTML=`${ic('inbox')}<div><b style="letter-spacing:0">Eventique</b> · Your OTP is <b>${S.otp}</b>. Valid for 5 minutes. (demo SMS)</div>`;
+  setTimeout(()=>sms.classList.add('show'),60);clearTimeout(smsTimer);smsTimer=setTimeout(()=>sms.classList.remove('show'),6000);
+  startResend();
+  if(fill===true)S.otp.split('').forEach((c,i)=>{const el=document.getElementById('o'+i);if(el)el.value=c});
+}
+function verifyOtp(){
+  const v=[...document.querySelectorAll('#otp input')].map(x=>x.value).join('');
+  if(v.length<6){authErr('Enter all 6 digits of the OTP.');return}
+  if(v!==S.otp){authErr('That OTP doesn’t match. Check the SMS and try again.');document.querySelectorAll('#otp input').forEach(x=>x.value='');document.getElementById('o0')?.focus();return}
+  clearInterval(resendTimer);
+  const su=suInit(),signup=S.mode==='signup';
+  let acc=findAccount(S.phone);
+  if(signup){
+    acc={phone:S.phone,role:S.role,name:(S.role==='vendor'?su.owner:S.name).trim(),business:S.role==='vendor'?S.name.trim():'',cat:su.cat,city:su.city,email:su.email.trim(),eventDate:su.eventDate,created:Date.now()};
+    saveAccount(acc);
+  }
+  const priya=acc.name==='Priya Sharma'&&S.role==='customer';
+  S.user=Object.assign({email:'',city:acc.city||S.city||'Lucknow',dob:'',gender:'',address:'',photo:'',eventDate:priya?'2026-11-28':'',partner:priya?'Arjun':''},
+    {name:acc.name||DEMO[S.role].name,phone:S.phone,isNew:signup},acc.email?{email:acc.email}:{},acc.eventDate?{eventDate:acc.eventDate}:{},loadUser(S.phone));
+  if(S.role==='vendor'&&signup){S.vprofile.name=acc.business;S.vprofile.cat=acc.cat;S.vprofile.city=acc.city;S.vprofile.about='';S.vprofile.years='';S.vprofile.insta='';S.vprofile.gst='';S.vstatus='Pending'}
+  S.screen='dash';S.hist=[];S.ctx={};S.q='';S.fil='All';
+  S.page=signup&&S.role==='vendor'?'vprofile':{customer:'events',vendor:'vdash',admin:'adash'}[S.role];
+  const m=document.getElementById('msgs');if(m)m.innerHTML='';
+  S.name='';S.su=null;
+  render();
+  if(signup)welcomeNew(acc);else toast('Logged in');
+}
+function welcomeNew(acc){
+  const n=esc(first(acc.name||'there'));
+  const steps={customer:[['Choose your event','Wedding, birthday, puja and more'],['Compare vendors','Packages, photos and real reviews'],['Book with an advance','Full refund until the vendor confirms']],
+    vendor:[['Complete your profile','About, experience and documents'],['Add services and photos','Packages with clear prices'],['Get verified','Our team reviews you within 24 hours']],
+    admin:[['Verify vendors','Approve new vendor profiles'],['Watch activity','Bookings and payments live'],['Set the rules','Commission, GST and advance']]}[S.role];
+  openSheet(`<div class="stack"><div style="text-align:center"><img src="${LOGO_E}" alt="" style="width:56px;height:56px;border-radius:50%"><h3 style="font-size:22px;margin-top:8px">Welcome to Eventique, ${n}!</h3>
+    <div class="muted">${S.role==='vendor'?`Your business <b>${esc(acc.business)}</b> is registered. It goes live after verification.`:'Your account is ready.'}</div></div>
+    <div class="su-next">${steps.map((s,i)=>`<div><i>${i+1}</i><span><b>${s[0]}</b><small>${s[1]}</small></span></div>`).join('')}</div>
+    <button class="btn block" onclick="closeSheet()"><span>${S.role==='vendor'?'Complete my profile':'Let’s start'}</span></button></div>`);
+}
+function logout(){S.screen="auth";S.mode="login";S.otpSent=false;S.phone="";S.name="";S.su=null;S.user=null;S.page="";S.hist=[];closeSheet();render()}
+
 render();
 
 </script>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/api.js"></script>
-<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script></body></html>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body></html>

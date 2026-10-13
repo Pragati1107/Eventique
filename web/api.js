@@ -159,30 +159,44 @@
     window.gmv = () => (S.ov ? S.ov.gmv : 0);
 
     /* auth */
+    const authBody = () => { const su = suInit(); return { phone: S.phone, role: S.role, mode: S.mode, name: (S.name || '').trim(), inviteCode: su.invite, email: su.email.trim(), city: su.city, category: su.cat, ownerName: (su.owner || '').trim(), eventDate: su.eventDate }; };
+    const showAuthError = (e) => {
+      const m = esc(e.message || 'Something went wrong. Please try again.');
+      let extra = '';
+      if (/no account/i.test(e.message)) extra = ` <button class="linkbtn" onclick="goSignup()">Create an account</button>`;
+      else if (/already exists/i.test(e.message)) extra = ` <button class="linkbtn" onclick="goLogin()">Log in instead</button>`;
+      else { const r = /registered as a (customer|vendor|admin)/i.exec(e.message); if (r) extra = ` <button class="linkbtn" onclick="goLogin('${r[1].toLowerCase()}')">Log in as ${roleWord(r[1].toLowerCase())}</button>`; }
+      authErr(m + extra);
+    };
     window.sendOtp = async function (fill) {
-      const err = document.getElementById('err');
+      clearAuthErrs();
+      if (S.mode === 'signup') { if (!validateSignup()) return; }
+      else if (!/^[6-9]\d{9}$/.test(S.phone)) { setFieldErr('ph', 'Enter a valid 10-digit Indian mobile number.'); return; }
       try {
-        const r = await post('/auth/otp', { phone: S.phone, role: S.role, mode: S.mode, name: S.name, inviteCode: S.invite });
+        const r = await post('/auth/otp', authBody());
         S.otp = r.devCode || ''; S.otpSent = true; render();
         const sms = document.getElementById('sms');
-        sms.innerHTML = r.devCode ? `${ic('inbox')}<div><b>Eventique</b> · Your OTP is <b>${r.devCode}</b>. (development mode)</div>` : `${ic('inbox')}<div>OTP sent to +91 ${S.phone}</div>`;
+        sms.innerHTML = r.devCode ? `${ic('inbox')}<div><b>Eventique</b> · Your OTP is <b>${r.devCode}</b>. (test mode)</div>` : `${ic('inbox')}<div>OTP sent to +91 ${S.phone}</div>`;
         setTimeout(() => sms.classList.add('show'), 60); setTimeout(() => sms.classList.remove('show'), 6000);
         startResend();
         if (fill === true && r.devCode) r.devCode.split('').forEach((c, i) => { const el = document.getElementById('o' + i); if (el) el.value = c; });
-      } catch (e) { if (err) err.textContent = e.message; else fail(e); }
+      } catch (e) { showAuthError(e); }
     };
     window.verifyOtp = async function () {
-      const v = [...document.querySelectorAll('#otp input')].map((x) => x.value).join(''); const err = document.getElementById('err');
-      if (v.length < 6) { err.textContent = 'Enter all 6 digits of the OTP.'; return; }
+      const v = [...document.querySelectorAll('#otp input')].map((x) => x.value).join('');
+      if (v.length < 6) { authErr('Enter all 6 digits of the OTP.'); return; }
       try {
-        const r = await post('/auth/verify', { phone: S.phone, role: S.role, mode: S.mode, name: S.name, inviteCode: S.invite, code: v });
+        const r = await post('/auth/verify', { ...authBody(), code: v });
         setToken(r.token); clearInterval(resendTimer);
         await loadAll();
-        S.screen = 'dash'; S.hist = []; S.ctx = {}; S.q = ''; S.fil = 'All'; S.page = { customer: 'events', vendor: 'vdash', admin: 'adash' }[S.role];
-        render(); toast(r.created ? 'Account created. Welcome!' : 'Logged in');
-      } catch (e) { err.textContent = e.message; document.querySelectorAll('#otp input').forEach((x) => (x.value = '')); const o = document.getElementById('o0'); if (o) o.focus(); }
+        S.screen = 'dash'; S.hist = []; S.ctx = {}; S.q = ''; S.fil = 'All';
+        S.page = r.created && S.role === 'vendor' ? 'vprofile' : { customer: 'events', vendor: 'vdash', admin: 'adash' }[S.role];
+        S.name = ''; S.su = null;
+        render();
+        if (r.created) welcomeNew({ name: r.user.name, business: r.vendor ? r.vendor.name : '' }); else toast('Logged in');
+      } catch (e) { showAuthError(e); document.querySelectorAll('#otp input').forEach((x) => (x.value = '')); const o = document.getElementById('o0'); if (o) o.focus(); }
     };
-    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.otpSent = false; S.phone = ''; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
+    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.otpSent = false; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
 
     /* profile */
     window.saveEdit = async function () {
