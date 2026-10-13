@@ -1198,7 +1198,7 @@ function welcome(){
    <div class="ornament">${ic('flower',sm)}</div>
    <div class="quote"><p id="qt">${QUOTES[0][0]}</p><small id="qs">${QUOTES[0][1]}</small></div>
    <div class="dots" id="dots">${QUOTES.map((_,i)=>`<span class="${i?'':'on'}"></span>`).join('')}</div>
-   <button class="cta" onclick="S.mode='signup';S.otpSent=false;goScreen('auth')" aria-label="Start planning: create your account"><span class="cta-t">Start planning</span><span class="cta-a" aria-hidden="true">${ic('next','style="width:20px;height:20px"')}</span></button>
+   <button class="cta" onclick="S.mode='signup';S.otpSent=false;goScreen('auth')" aria-label="Get started: create your account"><span class="cta-t">Get started</span><span class="cta-a" aria-hidden="true">${ic('next','style="width:20px;height:20px"')}</span></button>
    <div class="welcome-login">Already have an account? <button class="linkbtn" onclick="S.mode='login';S.otpSent=false;goScreen('auth')">Log in</button></div>
    <button class="btn sm soft" onclick="startTourScreen()">${ic('next',sm)}<span>Take the app tour</span></button>
    <div class="trust"><span class="av"><i style="background:#8B1E3F">P</i><i style="background:#0D6B4E">R</i><i style="background:#B8862B">A</i><i style="background:#6B2D5C">N</i></span><span>Trusted by <b>2,400+ families</b> · <span class="star">★ 4.8</span></span></div>
