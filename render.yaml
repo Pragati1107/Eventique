@@ -19,7 +19,13 @@ services:
       - key: AUTO_SEED
         value: "true"
       - key: OTP_PROVIDER
-        value: dev
+        value: auto        # uses Twilio as soon as TWILIO_* keys are added, otherwise shows the OTP on screen
+      - key: TWILIO_SID
+        sync: false
+      - key: TWILIO_TOKEN
+        sync: false
+      - key: TWILIO_VERIFY_SID
+        sync: false
       - key: DEMO_PHONES
         value: 9876543210,9123456780,9000000001
       - key: DEMO_OTP

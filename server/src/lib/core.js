@@ -53,6 +53,16 @@ const verifyPaymentSignature = (orderId, paymentId, signature, secret) =>
 const verifyWebhookSignature = (rawBody, signature, secret) =>
   !!(rawBody && signature && secret) && safeEqual(hmacHex(secret, rawBody), signature);
 
+/* ---------- OTP provider ---------- */
+/** auto = Twilio when its keys are set, otherwise dev (code shown on screen). */
+function pickOtpProvider({ provider, sid, token, verifySid, from }) {
+  const p = String(provider || 'auto').toLowerCase();
+  const twilioReady = !!(sid && token && (verifySid || from));
+  if (p === 'auto') return twilioReady ? (verifySid ? 'twilio_verify' : 'twilio') : 'dev';
+  if (p === 'twilio') return verifySid ? 'twilio_verify' : 'twilio';
+  return p;
+}
+
 /* ---------- bookings ---------- */
 const TRANSITIONS = {
   customer: { AwaitingPayment: ['Cancelled'], Pending: ['Cancelled'] },
@@ -72,5 +82,5 @@ function refundFor(booking, now, freeCancelHours, byRole) {
 module.exports = {
   HttpError, asyncH, isPhone, isDate, isEmail, str, int, pick, escapeRegex,
   priceBooking, payoutFor, makeCode, generateOtp, hashOtp, safeEqual,
-  verifyPaymentSignature, verifyWebhookSignature, hmacHex, canTransition, refundFor, TRANSITIONS,
+  verifyPaymentSignature, verifyWebhookSignature, hmacHex, canTransition, refundFor, TRANSITIONS, pickOtpProvider,
 };

@@ -5,6 +5,32 @@ const config = require('../config');
 const { HttpError, makeCode, verifyPaymentSignature } = require('../lib/core');
 
 /* ======================= SMS / OTP delivery ======================= */
+const twilioAuth = () => 'Basic ' + Buffer.from(`${config.otp.twilio.sid}:${config.otp.twilio.token}`).toString('base64');
+async function twilioError(r) {
+  let j = {}; try { j = await r.json(); } catch (e) { /* not JSON */ }
+  console.error('[twilio]', r.status, j.code, j.message);
+  if (j.code === 21608 || j.code === 21614 || j.code === 60205) return new HttpError(502, 'SMS could not be sent to this number. On a Twilio trial account, only verified numbers can receive OTPs.');
+  if (j.code === 60203 || r.status === 429) return new HttpError(429, 'Too many OTP requests for this number. Please try again in a few minutes.');
+  if (j.code === 60200 || j.code === 21211) return new HttpError(400, 'This mobile number is not valid for SMS.');
+  if (r.status === 401) return new HttpError(500, 'SMS service login failed. Check TWILIO_SID and TWILIO_TOKEN.');
+  return new HttpError(502, 'Could not send the OTP SMS. Please try again.');
+}
+/** Twilio Verify: Twilio creates, sends and checks the code. */
+async function verifyStart(phone) {
+  const { verifySid } = config.otp.twilio;
+  const r = await fetch(`https://verify.twilio.com/v2/Services/${verifySid}/Verifications`, { method: 'POST', body: new URLSearchParams({ To: `+91${phone}`, Channel: 'sms' }), headers: { Authorization: twilioAuth() } });
+  if (!r.ok) throw await twilioError(r);
+  return { sent: true };
+}
+async function verifyCheck(phone, code) {
+  const { verifySid } = config.otp.twilio;
+  const r = await fetch(`https://verify.twilio.com/v2/Services/${verifySid}/VerificationCheck`, { method: 'POST', body: new URLSearchParams({ To: `+91${phone}`, Code: String(code) }), headers: { Authorization: twilioAuth() } });
+  if (r.status === 404) return false; // no pending verification (expired or already used)
+  if (!r.ok) throw await twilioError(r);
+  const j = await r.json();
+  return j.status === 'approved';
+}
+
 async function sendSms(phone, code) {
   const p = config.otp.provider;
   if (p === 'dev') { console.log(`[otp] ${phone} -> ${code} (dev mode, no SMS sent)`); return { dev: true }; }
@@ -20,10 +46,8 @@ async function sendSms(phone, code) {
     const { sid, token, from } = config.otp.twilio;
     if (!sid || !token || !from) throw new HttpError(500, 'Twilio is not configured');
     const body = new URLSearchParams({ To: `+91${phone}`, From: from, Body: `${code} is your Eventique OTP. It is valid for ${config.otp.ttlMinutes} minutes. Do not share it.` });
-    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: 'POST', body, headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64') },
-    });
-    if (!r.ok) throw new HttpError(502, 'Could not send the OTP SMS. Please try again.');
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, { method: 'POST', body, headers: { Authorization: twilioAuth() } });
+    if (!r.ok) throw await twilioError(r);
     return { sent: true };
   }
   throw new HttpError(500, `Unknown OTP_PROVIDER "${p}"`);
@@ -107,4 +131,4 @@ async function settings() {
   return { commission: s?.commission ?? d.commission, gst: s?.gst ?? d.gst, advance: s?.advance ?? d.advance, freeCancelHours: s?.freeCancelHours ?? d.freeCancelHours, maintenance: !!s?.maintenance };
 }
 
-module.exports = { sendSms, createOrder, verifyPayment, mockSign, refund, storeFile, setIO, emitTo, notify, settings, makeCode, UPLOAD_DIR };
+module.exports = { sendSms, verifyStart, verifyCheck, createOrder, verifyPayment, mockSign, refund, storeFile, setIO, emitTo, notify, settings, makeCode, UPLOAD_DIR };

@@ -11,14 +11,14 @@ const config = {
   jwtSecret: process.env.JWT_SECRET || '',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
   otp: {
-    provider: (process.env.OTP_PROVIDER || 'dev').toLowerCase(),
+    provider: 'dev', // resolved below
     demoPhones: list(process.env.DEMO_PHONES),
     demoOtp: process.env.DEMO_OTP || '123456',
     ttlMinutes: 5,
     maxAttempts: 5,
     resendSeconds: 30,
     msg91: { authKey: process.env.MSG91_AUTH_KEY, templateId: process.env.MSG91_TEMPLATE_ID },
-    twilio: { sid: process.env.TWILIO_SID, token: process.env.TWILIO_TOKEN, from: process.env.TWILIO_FROM },
+    twilio: { sid: (process.env.TWILIO_SID || '').trim(), token: (process.env.TWILIO_TOKEN || '').trim(), from: (process.env.TWILIO_FROM || '').trim(), verifySid: (process.env.TWILIO_VERIFY_SID || '').trim() },
   },
   adminInviteCode: process.env.ADMIN_INVITE_CODE || 'EVQ-ADMIN',
   razorpay: {
@@ -40,6 +40,8 @@ const config = {
 };
 
 config.isProd = config.env === 'production';
+config.otp.provider = require('./lib/core').pickOtpProvider({ provider: process.env.OTP_PROVIDER, ...config.otp.twilio });
+console.log(`[config] OTP provider: ${config.otp.provider}`);
 config.paymentsMock = !(config.razorpay.keyId && config.razorpay.keySecret);
 
 if (!config.jwtSecret) {

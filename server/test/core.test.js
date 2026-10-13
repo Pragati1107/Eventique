@@ -80,3 +80,12 @@ test('validators', () => {
   assert.strictEqual(c.int('abc', { def: 3 }), 3);
   assert.strictEqual(c.escapeRegex('a.b*c'), 'a\\.b\\*c');
 });
+
+test('OTP provider: auto picks Twilio only when its keys are set', () => {
+  assert.strictEqual(c.pickOtpProvider({}), 'dev');
+  assert.strictEqual(c.pickOtpProvider({ provider: 'auto', sid: 'AC1', token: 't' }), 'dev');
+  assert.strictEqual(c.pickOtpProvider({ provider: 'auto', sid: 'AC1', token: 't', verifySid: 'VA1' }), 'twilio_verify');
+  assert.strictEqual(c.pickOtpProvider({ provider: 'auto', sid: 'AC1', token: 't', from: '+1555' }), 'twilio');
+  assert.strictEqual(c.pickOtpProvider({ provider: 'dev', sid: 'AC1', token: 't', verifySid: 'VA1' }), 'dev');
+  assert.strictEqual(c.pickOtpProvider({ provider: 'twilio', verifySid: 'VA1' }), 'twilio_verify');
+});

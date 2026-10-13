@@ -62,7 +62,7 @@ Everything runs in **test mode** out of the box, so you can demo the full flow w
 
 | Feature | Test mode (default) | Real mode: what to set in `server/.env` |
 |---|---|---|
-| OTP SMS | `OTP_PROVIDER=dev`: no SMS; code is printed and shown on screen | `OTP_PROVIDER=msg91` + `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, or `OTP_PROVIDER=twilio` + `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM`. Also clear `DEMO_PHONES`. |
+| OTP SMS | No Twilio keys: no SMS; code is printed and shown on screen | **Twilio Verify (recommended):** set `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_VERIFY_SID` (with `OTP_PROVIDER=auto`). Or plain Twilio SMS with `TWILIO_FROM`, or `OTP_PROVIDER=msg91` + `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`. Demo numbers in `DEMO_PHONES` keep OTP 123456; clear it for full production. |
 | Payments | Razorpay keys empty: built-in mock gateway, a "Test payment" screen, no money moves | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` (start with **Test Mode** keys from the Razorpay dashboard, then switch to Live keys after KYC). Add `RAZORPAY_WEBHOOK_SECRET` and a webhook for `payment.captured` pointing to `<PUBLIC_URL>/api/payments/webhook`. |
 | Images | `STORAGE=local`: saved in `server/uploads/` | `STORAGE=cloudinary` + `CLOUDINARY_URL=cloudinary://key:secret@cloud` |
 | 22-language switcher (web) | Off | `ANTHROPIC_API_KEY` (optional) |

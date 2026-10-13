@@ -3,7 +3,7 @@ const multer = require('multer');
 const config = require('../config');
 const { User, Vendor, Otp, Notification, Card } = require('../models');
 const { HttpError, asyncH, isPhone, isEmail, isDate, str, int, generateOtp, hashOtp, safeEqual } = require('../lib/core');
-const { sendSms, storeFile } = require('../services');
+const { sendSms, verifyStart, verifyCheck, storeFile } = require('../services');
 const { auth } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -38,16 +38,22 @@ router.post('/phone/otp', asyncH(async (req, res) => {
   const { phone } = req.body;
   if (!isPhone(phone)) throw new HttpError(400, 'Enter a valid 10-digit mobile number.');
   if (await User.exists({ phone })) throw new HttpError(409, 'That number is already linked to another account.');
+  if (config.otp.provider === 'twilio_verify') {
+    await verifyStart(phone);
+    await Otp.create({ phone, purpose: 'change-phone', codeHash: 'twilio-verify', expiresAt: new Date(Date.now() + 10 * 60e3) });
+    return res.json({ sent: true });
+  }
   const code = generateOtp();
-  await Otp.create({ phone, purpose: 'change-phone', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt: new Date(Date.now() + config.otp.ttlMinutes * 60e3) });
   await sendSms(phone, code);
+  await Otp.create({ phone, purpose: 'change-phone', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt: new Date(Date.now() + config.otp.ttlMinutes * 60e3) });
   res.json({ sent: true, ...(config.otp.provider === 'dev' ? { devCode: code } : {}) });
 }));
 router.post('/phone/verify', asyncH(async (req, res) => {
   const { phone, code } = req.body;
   const otp = await Otp.findOne({ phone, purpose: 'change-phone', usedAt: null }).sort({ createdAt: -1 });
   if (!otp || otp.expiresAt < new Date() || otp.attempts >= config.otp.maxAttempts) throw new HttpError(400, 'This OTP has expired. Request a new one.');
-  if (!safeEqual(otp.codeHash, hashOtp(phone, String(code), config.jwtSecret))) { otp.attempts += 1; await otp.save(); throw new HttpError(400, 'Incorrect OTP. Please try again.'); }
+  const ok = otp.codeHash === 'twilio-verify' ? await verifyCheck(phone, String(code)) : safeEqual(otp.codeHash, hashOtp(phone, String(code), config.jwtSecret));
+  if (!ok) { otp.attempts += 1; await otp.save(); throw new HttpError(400, 'Incorrect OTP. Please try again.'); }
   otp.usedAt = new Date(); await otp.save();
   req.user.phone = phone; await req.user.save();
   res.json({ user: req.user });

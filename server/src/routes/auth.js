@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 const config = require('../config');
 const { User, Vendor, Otp } = require('../models');
 const { HttpError, asyncH, isPhone, isEmail, isDate, str, generateOtp, hashOtp, safeEqual } = require('../lib/core');
-const { sendSms, emitTo } = require('../services');
+const { sendSms, verifyStart, verifyCheck, emitTo } = require('../services');
 const { sign } = require('../middleware/auth');
 
 const limiter = rateLimit({ windowMs: 10 * 60e3, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many attempts. Please wait a few minutes and try again.' } });
@@ -11,6 +11,7 @@ router.use(limiter);
 
 const ROLES = ['customer', 'vendor', 'admin'];
 const isDemo = (phone) => config.otp.demoPhones.includes(phone);
+const viaVerify = (phone) => config.otp.provider === 'twilio_verify' && !isDemo(phone);
 
 function checkIntent(body) {
   const { phone, role, mode, name, inviteCode } = body;
@@ -37,9 +38,15 @@ router.post('/otp', asyncH(async (req, res) => {
   if (last && Date.now() - last.createdAt.getTime() < config.otp.resendSeconds * 1000) {
     throw new HttpError(429, `Please wait ${config.otp.resendSeconds} seconds before asking for a new OTP.`);
   }
+  const expiresAt = new Date(Date.now() + (viaVerify(phone) ? 10 : config.otp.ttlMinutes) * 60e3);
+  if (viaVerify(phone)) {
+    await verifyStart(phone); // Twilio generates, sends and later checks the code
+    await Otp.create({ phone, purpose: 'login', codeHash: 'twilio-verify', expiresAt });
+    return res.json({ sent: true, expiresInSeconds: 600, resendInSeconds: config.otp.resendSeconds });
+  }
   const code = isDemo(phone) ? config.otp.demoOtp : generateOtp();
-  await Otp.create({ phone, purpose: 'login', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt: new Date(Date.now() + config.otp.ttlMinutes * 60e3) });
   if (!isDemo(phone)) await sendSms(phone, code);
+  await Otp.create({ phone, purpose: 'login', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt });
   res.json({ sent: true, expiresInSeconds: config.otp.ttlMinutes * 60, resendInSeconds: config.otp.resendSeconds, ...(config.otp.provider === 'dev' || isDemo(phone) ? { devCode: code } : {}) });
 }));
 
@@ -51,7 +58,8 @@ router.post('/verify', asyncH(async (req, res) => {
   const otp = await Otp.findOne({ phone, purpose: 'login', usedAt: null }).sort({ createdAt: -1 });
   if (!otp || otp.expiresAt < new Date()) throw new HttpError(400, 'This OTP has expired. Tap "Resend OTP".');
   if (otp.attempts >= config.otp.maxAttempts) throw new HttpError(429, 'Too many wrong attempts. Request a new OTP.');
-  if (!safeEqual(otp.codeHash, hashOtp(phone, String(code), config.jwtSecret))) {
+  const ok = otp.codeHash === 'twilio-verify' ? await verifyCheck(phone, String(code)) : safeEqual(otp.codeHash, hashOtp(phone, String(code), config.jwtSecret));
+  if (!ok) {
     otp.attempts += 1; await otp.save();
     throw new HttpError(400, "That OTP doesn't match. Check the SMS and try again.");
   }
