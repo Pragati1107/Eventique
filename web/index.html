@@ -858,6 +858,25 @@ input[type=range]{accent-color:var(--ac);width:100%}
 .su-next b{display:block;font-size:14px}.su-next small{color:var(--muted);font-size:12.5px}
 .auth .role:disabled{opacity:.6}
 @media (max-width:420px){.auth .two{grid-template-columns:1fr}}
+/* ---- welcome call to action ---- */
+.welcome .cta{margin-top:auto}
+.cta{position:relative;width:100%;max-width:420px;height:58px;border:0;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 64px;cursor:pointer;overflow:hidden;
+  color:#fff;font:inherit;font-size:16.5px;font-weight:650;letter-spacing:.03em;
+  background:linear-gradient(135deg,#A42A50 0%,#8B1E3F 45%,#64122F 100%);
+  box-shadow:0 12px 26px -10px rgba(110,22,52,.65),0 2px 6px rgba(110,22,52,.18),inset 0 1px 0 rgba(255,255,255,.22),inset 0 -2px 0 rgba(0,0,0,.12);
+  transition:transform .18s ease,box-shadow .2s ease}
+.cta::before{content:'';position:absolute;inset:3px;border-radius:inherit;border:1px solid rgba(233,201,122,.45);pointer-events:none}
+.cta::after{content:'';position:absolute;top:0;left:-60%;width:38%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-20deg);animation:ctaShine 5s ease-in-out 1.5s infinite;pointer-events:none}
+@keyframes ctaShine{0%{left:-60%}30%,100%{left:135%}}
+.cta .cta-a{position:absolute;right:6px;top:6px;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#5E1230;
+  background:linear-gradient(140deg,#F3DC9C 0%,#D9B25C 55%,#BE913E 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 2px 6px rgba(0,0,0,.18);transition:transform .2s ease}
+.cta:hover{transform:translateY(-1px);box-shadow:0 16px 30px -10px rgba(110,22,52,.7),0 2px 6px rgba(110,22,52,.2),inset 0 1px 0 rgba(255,255,255,.22),inset 0 -2px 0 rgba(0,0,0,.12)}
+.cta:hover .cta-a{transform:translateX(3px)}
+.cta:active{transform:scale(.985)}
+.cta:focus-visible{outline:3px solid #D9B25C;outline-offset:3px}
+.welcome-login{font-size:14px;color:var(--muted);text-align:center;margin:-4px 0 2px}
+@media (prefers-reduced-motion:reduce){.cta::after{animation:none;display:none}.cta,.cta .cta-a{transition:none}}
+.welcome .btn.sm.soft{margin-top:0}
 </style>
 
 <div class="stage"><div class="app" id="app" data-role="none"></div></div>
@@ -1179,8 +1198,9 @@ function welcome(){
    <div class="ornament">${ic('flower',sm)}</div>
    <div class="quote"><p id="qt">${QUOTES[0][0]}</p><small id="qs">${QUOTES[0][1]}</small></div>
    <div class="dots" id="dots">${QUOTES.map((_,i)=>`<span class="${i?'':'on'}"></span>`).join('')}</div>
-   <button class="btn block mirror" style="background-color:var(--brand);color:#fff" onclick="goScreen('auth')"><span>Get started</span></button>
-   <button class="btn sm soft" onclick="startTourScreen()" style="margin-top:-6px">${ic('next',sm)}<span>Take the app tour</span></button>
+   <button class="cta" onclick="S.mode='signup';S.otpSent=false;goScreen('auth')" aria-label="Start planning: create your account"><span class="cta-t">Start planning</span><span class="cta-a" aria-hidden="true">${ic('next','style="width:20px;height:20px"')}</span></button>
+   <div class="welcome-login">Already have an account? <button class="linkbtn" onclick="S.mode='login';S.otpSent=false;goScreen('auth')">Log in</button></div>
+   <button class="btn sm soft" onclick="startTourScreen()">${ic('next',sm)}<span>Take the app tour</span></button>
    <div class="trust"><span class="av"><i style="background:#8B1E3F">P</i><i style="background:#0D6B4E">R</i><i style="background:#B8862B">A</i><i style="background:#6B2D5C">N</i></span><span>Trusted by <b>2,400+ families</b> · <span class="star">★ 4.8</span></span></div>
   </div></div>`;
 }
@@ -1829,7 +1849,7 @@ function cPlanner(){const p=checkPct(),b=budgetInfo(),g=guestInfo();const next=S
    ${tile('checklist','Checklist',`${doneN()}/${S.tasks.length} tasks done`,'check',p)}
    ${tile('budget','Budget',`${rupee(b.spent)} / ${rupee(b.total)}`,'card',b.pct)}
    ${tile('guests','Guest list',`${g.att} attending · ${g.inv} invited`,'users',g.inv?Math.round(g.att/g.inv*100):0)}
-   ${tile('!openStudio(\'wedding\')','Card Studio',S.invite.sent?'Invites bhej diye ✓':'Design your own invitation','invite')}
+   ${tile('!openStudio(\'wedding\')','Card Studio',S.invite.sent?'Invites sent ✓':'Design your own invitation','invite')}
    ${tile('saved','Saved vendors',`${S.favs.length} vendors saved`,'heart')}
    ${tile('compare','Compare',`Vendors side-by-side`,'grid')}
   </div>${tipCard()}`}
