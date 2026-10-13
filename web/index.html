@@ -877,6 +877,12 @@ input[type=range]{accent-color:var(--ac);width:100%}
 .welcome-login{font-size:14px;color:var(--muted);text-align:center;margin:-4px 0 2px}
 @media (prefers-reduced-motion:reduce){.cta::after{animation:none;display:none}.cta,.cta .cta-a{transition:none}}
 .welcome .btn.sm.soft{margin-top:0}
+.welcome .cta,.welcome .welcome-login,.welcome .btn{flex-shrink:0}.cta{min-height:58px}
+/* keep Get started on screen on shorter phones */
+@media (max-height:820px){.welcome .brandlogo{width:190px;height:190px}.welcome{gap:12px;padding-top:20px}}
+@media (max-height:700px){.welcome .brandlogo{width:150px;height:150px}.welcome .quote p{font-size:18px}.welcome{gap:10px;padding-bottom:22px}}
+@media (max-height:600px){.welcome .brandlogo{width:118px;height:118px}.welcome .ornament{display:none}}
+.app:has(.welcome) .fab2{display:none}
 </style>
 
 <div class="stage"><div class="app" id="app" data-role="none"></div></div>
