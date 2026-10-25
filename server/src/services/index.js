@@ -8,12 +8,16 @@ const { HttpError, makeCode, verifyPaymentSignature } = require('../lib/core');
 const twilioAuth = () => 'Basic ' + Buffer.from(`${config.otp.twilio.sid}:${config.otp.twilio.token}`).toString('base64');
 async function twilioError(r) {
   let j = {}; try { j = await r.json(); } catch (e) { /* not JSON */ }
-  console.error('[twilio]', r.status, j.code, j.message);
-  if (j.code === 21608 || j.code === 21614 || j.code === 60205) return new HttpError(502, 'SMS could not be sent to this number. On a Twilio trial account, only verified numbers can receive OTPs.');
-  if (j.code === 60203 || r.status === 429) return new HttpError(429, 'Too many OTP requests for this number. Please try again in a few minutes.');
-  if (j.code === 60200 || j.code === 21211) return new HttpError(400, 'This mobile number is not valid for SMS.');
-  if (r.status === 401) return new HttpError(500, 'SMS service login failed. Check TWILIO_SID and TWILIO_TOKEN.');
-  return new HttpError(502, 'Could not send the OTP SMS. Please try again.');
+  console.error('[twilio] send failed:', r.status, 'code', j.code, '-', j.message, j.more_info || '');
+  const c = j.code;
+  if (c === 21608 || c === 21614 || c === 60205) return new HttpError(502, 'SMS could not be sent to this number. On a Twilio trial account, add it under Verified Caller IDs first.', 'SMS_UNVERIFIED');
+  if (c === 21408) return new HttpError(502, 'SMS to India is turned off in Twilio. Enable India under Messaging > Settings > Geo permissions.', 'SMS_GEO');
+  if (c === 21610) return new HttpError(502, 'This number has blocked SMS from us (it replied STOP). Reply START to the Twilio number, then try again.', 'SMS_STOPPED');
+  if (c === 21606 || c === 21659 || c === 21212 || c === 21660) return new HttpError(502, 'The Twilio sender number (TWILIO_FROM) is wrong or cannot send SMS. Check it in Render.', 'SMS_FROM');
+  if (c === 20003 || r.status === 401) return new HttpError(502, 'Twilio login failed. Check TWILIO_SID and TWILIO_TOKEN in Render.', 'SMS_AUTH');
+  if (c === 20429 || c === 60203 || r.status === 429) return new HttpError(429, 'Too many OTP requests for this number. Please try again in a few minutes.', 'SMS_RATE');
+  if (c === 60200 || c === 21211) return new HttpError(400, 'This mobile number is not valid for SMS.', 'SMS_NUMBER');
+  return new HttpError(502, `The OTP SMS could not be sent${c ? ` (Twilio error ${c})` : ''}. Please try again.`, 'SMS_FAILED');
 }
 /** Twilio Verify: Twilio creates, sends and checks the code. */
 async function verifyStart(phone) {

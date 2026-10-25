@@ -2,7 +2,7 @@
 const crypto = require('crypto');
 
 class HttpError extends Error {
-  constructor(status, message, code) { super(message); this.status = status; this.code = code || undefined; }
+  constructor(status, message, code) { super(message); this.status = status; this.code = code || undefined; this.expose = true; }
 }
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 

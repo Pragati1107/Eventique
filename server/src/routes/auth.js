@@ -45,9 +45,14 @@ router.post('/otp', asyncH(async (req, res) => {
     return res.json({ sent: true, expiresInSeconds: 600, resendInSeconds: config.otp.resendSeconds });
   }
   const code = isDemo(phone) ? config.otp.demoOtp : generateOtp();
-  if (!isDemo(phone)) await sendSms(phone, code);
+  let smsFailed = false;
+  if (!isDemo(phone)) {
+    try { await sendSms(phone, code); }
+    catch (e) { if (!config.otp.fallbackScreen) throw e; smsFailed = true; console.warn('[otp] SMS failed, showing the code on screen (OTP_FALLBACK_SCREEN=true):', e.message); }
+  }
   await Otp.create({ phone, purpose: 'login', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt });
-  res.json({ sent: true, expiresInSeconds: config.otp.ttlMinutes * 60, resendInSeconds: config.otp.resendSeconds, ...(config.otp.provider === 'dev' || isDemo(phone) ? { devCode: code } : {}) });
+  const showCode = config.otp.provider === 'dev' || isDemo(phone) || smsFailed;
+  res.json({ sent: true, expiresInSeconds: config.otp.ttlMinutes * 60, resendInSeconds: config.otp.resendSeconds, ...(showCode ? { devCode: code } : {}), ...(smsFailed ? { smsFailed: true } : {}) });
 }));
 
 /** Step 2: verify the OTP, then log in or create the account. */

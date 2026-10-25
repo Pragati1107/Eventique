@@ -49,7 +49,7 @@ app.use((err, _req, res, _next) => {
   if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'That file is too large (max 8 MB).' });
   const status = err.status || err.statusCode || 500;
   if (status >= 500) console.error(err);
-  res.status(status).json({ error: status >= 500 && config.isProd ? 'Something went wrong. Please try again.' : err.message, code: err.code });
+  res.status(status).json({ error: status >= 500 && config.isProd && !err.expose ? 'Something went wrong. Please try again.' : err.message, code: err.code });
 });
 
 // Realtime: each user joins their own room; admins also join "admins".

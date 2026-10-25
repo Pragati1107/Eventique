@@ -17,6 +17,7 @@ const config = {
     ttlMinutes: 5,
     maxAttempts: 5,
     resendSeconds: 30,
+    fallbackScreen: process.env.OTP_FALLBACK_SCREEN === 'true', // if SMS fails, show the code on screen instead (demo safety net)
     msg91: { authKey: process.env.MSG91_AUTH_KEY, templateId: process.env.MSG91_TEMPLATE_ID },
     twilio: { sid: (process.env.TWILIO_SID || '').trim(), token: (process.env.TWILIO_TOKEN || '').trim(), from: (process.env.TWILIO_FROM || '').trim(), verifySid: (process.env.TWILIO_VERIFY_SID || '').trim() },
   },

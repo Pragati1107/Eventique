@@ -176,7 +176,7 @@
         const r = await post('/auth/otp', authBody());
         S.otp = r.devCode || ''; S.otpSent = true; render();
         const sms = document.getElementById('sms');
-        sms.innerHTML = r.devCode ? `${ic('inbox')}<div><b>Eventique</b> · Your OTP is <b>${r.devCode}</b>. (test mode)</div>` : `${ic('inbox')}<div>OTP sent to +91 ${S.phone}</div>`;
+        sms.innerHTML = r.devCode ? `${ic('inbox')}<div><b>Eventique</b> · Your OTP is <b>${r.devCode}</b>. ${r.smsFailed ? '(SMS could not be delivered, so it is shown here)' : '(test mode)'}</div>` : `${ic('inbox')}<div>OTP sent by SMS to +91 ${S.phone}</div>`;
         setTimeout(() => sms.classList.add('show'), 60); setTimeout(() => sms.classList.remove('show'), 6000);
         startResend();
         if (fill === true && r.devCode) r.devCode.split('').forEach((c, i) => { const el = document.getElementById('o' + i); if (el) el.value = c; });
