@@ -174,9 +174,10 @@
       else if (!/^[6-9]\d{9}$/.test(S.phone)) { setFieldErr('ph', 'Enter a valid 10-digit Indian mobile number.'); return; }
       try {
         const r = await post('/auth/otp', authBody());
-        S.otp = r.devCode || ''; S.otpSent = true; render();
+        S.otp = r.devCode || ''; S.otpTo = r.to || ''; S.otpSent = true; render();
         const sms = document.getElementById('sms');
-        sms.innerHTML = r.devCode ? `${ic('inbox')}<div><b>Eventique</b> · Your OTP is <b>${r.devCode}</b>. ${r.smsFailed ? '(SMS could not be delivered, so it is shown here)' : '(test mode)'}</div>` : `${ic('inbox')}<div>OTP sent by SMS to +91 ${S.phone}</div>`;
+        sms.innerHTML = r.devCode ? `${ic('inbox')}<div><b>Eventique</b> · Your OTP is <b>${r.devCode}</b>. ${r.smsFailed ? `(${S.otpChannel === 'email' ? 'Email' : 'SMS'} could not be delivered, so it is shown here)` : '(test mode)'}</div>`
+          : r.channel === 'email' ? `${ic('inbox')}<div>OTP sent to <b>${r.to}</b>. Check your inbox or Spam.</div>` : `${ic('inbox')}<div>OTP sent by SMS to +91 ${S.phone}</div>`;
         setTimeout(() => sms.classList.add('show'), 60); setTimeout(() => sms.classList.remove('show'), 6000);
         startResend();
         if (fill === true && r.devCode) r.devCode.split('').forEach((c, i) => { const el = document.getElementById('o' + i); if (el) el.value = c; });
@@ -196,7 +197,7 @@
         if (r.created) welcomeNew({ name: r.user.name, business: r.vendor ? r.vendor.name : '' }); else toast('Logged in');
       } catch (e) { showAuthError(e); document.querySelectorAll('#otp input').forEach((x) => (x.value = '')); const o = document.getElementById('o0'); if (o) o.focus(); }
     };
-    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.otpSent = false; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
+    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.otpSent = false; S.otpTo = ''; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
 
     /* profile */
     window.saveEdit = async function () {
@@ -209,7 +210,7 @@
         const r = await patch('/me', body); applyUser(r.user);
         if (phone !== r.user.phone) {
           const o = await post('/me/phone/otp', { phone });
-          openSheet(`<div class="stack"><h3 style="font-size:20px">Verify new number</h3><div class="muted">We sent a 6-digit OTP to +91 ${phone}.${o.devCode ? ` (development code: <b>${o.devCode}</b>)` : ''}</div>
+          openSheet(`<div class="stack"><h3 style="font-size:20px">Verify new number</h3><div class="muted">We sent a 6-digit OTP to ${o.to || '+91 ' + phone}.${o.devCode ? ` (development code: <b>${o.devCode}</b>)` : ''}</div>
             <div class="input"><input id="pot" inputmode="numeric" maxlength="6" placeholder="Enter OTP" style="letter-spacing:.3em;font-size:18px;text-align:center"></div><div class="err" id="poterr"></div>
             <button class="btn block" id="potbtn"><span>Verify & save</span></button></div>`);
           document.getElementById('potbtn').onclick = async () => { try { const rr = await post('/me/phone/verify', { phone, code: document.getElementById('pot').value.trim() }); applyUser(rr.user); closeSheet(); toast('Profile updated'); back(); } catch (e) { document.getElementById('poterr').textContent = e.message; } };
@@ -337,7 +338,7 @@
   /* ---------------- boot ---------------- */
   fetch(API + '/health').then((r) => (r.ok ? r.json() : null)).then(async (h) => {
     if (!h) return;
-    install();
+    S.otpChannel = h.otpChannel || ''; install(); if (S.screen === 'auth') render();
     const badge = document.createElement('div'); badge.className = 'livebadge'; badge.textContent = h.paymentsMode === 'mock' ? 'Live server · test payments' : 'Live server'; document.body.appendChild(badge);
     if (TOKEN) { try { await loadAll(); stopTour(); S.screen = 'dash'; S.page = { customer: 'events', vendor: 'vdash', admin: 'adash' }[S.role]; render(); } catch (e) { setToken(null); } }
   }).catch(() => { /* not served by the API: stay in demo mode */ });

@@ -2,8 +2,8 @@ const router = require('express').Router();
 const rateLimit = require('express-rate-limit');
 const config = require('../config');
 const { User, Vendor, Otp } = require('../models');
-const { HttpError, asyncH, isPhone, isEmail, isDate, str, generateOtp, hashOtp, safeEqual } = require('../lib/core');
-const { sendSms, verifyStart, verifyCheck, emitTo } = require('../services');
+const { HttpError, asyncH, isPhone, isEmail, isDate, str, generateOtp, hashOtp, safeEqual, maskEmail } = require('../lib/core');
+const { sendSms, sendEmailOtp, verifyStart, verifyCheck, emitTo } = require('../services');
 const { sign } = require('../middleware/auth');
 
 const limiter = rateLimit({ windowMs: 10 * 60e3, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many attempts. Please wait a few minutes and try again.' } });
@@ -11,6 +11,7 @@ router.use(limiter);
 
 const ROLES = ['customer', 'vendor', 'admin'];
 const isDemo = (phone) => config.otp.demoPhones.includes(phone);
+const viaEmail = () => config.otp.provider === 'email';
 const viaVerify = (phone) => config.otp.provider === 'twilio_verify' && !isDemo(phone);
 
 function checkIntent(body) {
@@ -20,6 +21,7 @@ function checkIntent(body) {
   if (!['login', 'signup'].includes(mode)) throw new HttpError(400, 'Invalid mode.');
   if (mode === 'signup') {
     if (str(name, 80).length < 2) throw new HttpError(400, role === 'vendor' ? 'Enter your business name.' : 'Enter your name to sign up.');
+    if (viaEmail() && !isDemo(phone) && !isEmail(str(body.email))) throw new HttpError(400, 'Enter your email. We send the OTP to it.');
     if (str(body.email) && !isEmail(str(body.email))) throw new HttpError(400, 'Enter a valid email, or leave it empty.');
     if (role === 'admin' && str(inviteCode).toUpperCase() !== config.adminInviteCode.toUpperCase()) throw new HttpError(403, 'That admin invite code is wrong.');
   }
@@ -45,14 +47,21 @@ router.post('/otp', asyncH(async (req, res) => {
     return res.json({ sent: true, expiresInSeconds: 600, resendInSeconds: config.otp.resendSeconds });
   }
   const code = isDemo(phone) ? config.otp.demoOtp : generateOtp();
-  let smsFailed = false;
-  if (!isDemo(phone)) {
+  let smsFailed = false; let sentTo;
+  if (viaEmail() && !isDemo(phone)) {
+    const to = mode === 'signup' ? str(req.body.email, 120).toLowerCase() : existing.email;
+    try {
+      if (!to) throw new HttpError(400, 'No email is saved on this account, so we cannot send the OTP.', 'NO_EMAIL');
+      await sendEmailOtp(to, code, mode === 'signup' ? str(req.body.ownerName || req.body.name, 80) : existing.name);
+      sentTo = maskEmail(to);
+    } catch (e) { if (!config.otp.fallbackScreen) throw e; smsFailed = true; console.warn('[otp] email failed, showing the code on screen (OTP_FALLBACK_SCREEN=true):', e.message); }
+  } else if (!isDemo(phone)) {
     try { await sendSms(phone, code); }
     catch (e) { if (!config.otp.fallbackScreen) throw e; smsFailed = true; console.warn('[otp] SMS failed, showing the code on screen (OTP_FALLBACK_SCREEN=true):', e.message); }
   }
   await Otp.create({ phone, purpose: 'login', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt });
   const showCode = config.otp.provider === 'dev' || isDemo(phone) || smsFailed;
-  res.json({ sent: true, expiresInSeconds: config.otp.ttlMinutes * 60, resendInSeconds: config.otp.resendSeconds, ...(showCode ? { devCode: code } : {}), ...(smsFailed ? { smsFailed: true } : {}) });
+  res.json({ sent: true, expiresInSeconds: config.otp.ttlMinutes * 60, resendInSeconds: config.otp.resendSeconds, ...(showCode ? { devCode: code } : {}), ...(smsFailed ? { smsFailed: true } : {}), ...(sentTo ? { channel: 'email', to: sentTo } : {}) });
 }));
 
 /** Step 2: verify the OTP, then log in or create the account. */
@@ -66,7 +75,7 @@ router.post('/verify', asyncH(async (req, res) => {
   const ok = otp.codeHash === 'twilio-verify' ? await verifyCheck(phone, String(code)) : safeEqual(otp.codeHash, hashOtp(phone, String(code), config.jwtSecret));
   if (!ok) {
     otp.attempts += 1; await otp.save();
-    throw new HttpError(400, "That OTP doesn't match. Check the SMS and try again.");
+    throw new HttpError(400, "That OTP doesn't match. Check the code and try again.");
   }
   otp.usedAt = new Date(); await otp.save();
 

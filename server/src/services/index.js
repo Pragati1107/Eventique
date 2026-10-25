@@ -35,6 +35,40 @@ async function verifyCheck(phone, code) {
   return j.status === 'approved';
 }
 
+/* ---- OTP by email, through a Google Apps Script web app (Render's free plan blocks SMTP) ---- */
+const escHtml = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function otpEmail(code, name) {
+  const mins = config.otp.ttlMinutes; const hi = name ? `Hi ${escHtml(name.split(' ')[0])},` : 'Hi,';
+  const text = `${hi}\n\nYour Eventique verification code is ${code}. It is valid for ${mins} minutes.\n\nIf you did not request this code, you can ignore this email. Never share this code with anyone.\n\nTeam Eventique`;
+  const html = `<div style="background:#f7f2f3;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;color:#241820"><div style="max-width:460px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ebdfe3">
+<div style="background:#8b1e3f;padding:18px 24px;color:#ffffff;font-size:20px;font-family:Georgia,serif">Eventique</div>
+<div style="padding:24px"><p style="margin:0 0 12px;font-size:15px">${hi}</p><p style="margin:0 0 18px;font-size:15px">Use this code to continue on Eventique:</p>
+<div style="font-size:34px;letter-spacing:10px;font-weight:bold;color:#8b1e3f;background:#f6e5ea;border-radius:12px;padding:14px 0;text-align:center">${code}</div>
+<p style="margin:18px 0 0;font-size:13px;color:#6f6068">The code is valid for ${mins} minutes. If you did not ask for it, ignore this email. Never share this code with anyone, including Eventique staff.</p></div>
+<div style="padding:14px 24px;border-top:1px solid #ebdfe3;font-size:12px;color:#6f6068">Eventique · Weddings, events and vendors in one app</div></div></div>`;
+  return { subject: `${code} is your Eventique verification code`, text, html };
+}
+async function sendEmailOtp(to, code, name) {
+  const { webhookUrl, secret, fromName } = config.otp.email;
+  if (!webhookUrl || !secret) throw new HttpError(502, 'Email sending is not set up. Add EMAIL_WEBHOOK_URL and EMAIL_WEBHOOK_SECRET in Render.', 'EMAIL_SETUP');
+  const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 20000);
+  let j = {};
+  try {
+    const r = await fetch(webhookUrl, { method: 'POST', redirect: 'follow', signal: ctrl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ secret, to, fromName, ...otpEmail(code, name) }) });
+    const raw = await r.text(); try { j = JSON.parse(raw); } catch (e) { j = { ok: false, error: `HTTP ${r.status}: ${raw.slice(0, 160)}` }; }
+  } catch (e) {
+    console.error('[email] request failed:', e.message);
+    throw new HttpError(502, 'The OTP email could not be sent. Please try again.', 'EMAIL_FAILED');
+  } finally { clearTimeout(timer); }
+  if (!j.ok) {
+    console.error('[email] send failed:', j.error);
+    if (/secret/i.test(j.error || '')) throw new HttpError(502, 'Email sender secret does not match. Check EMAIL_WEBHOOK_SECRET in Render and SECRET in the Apps Script.', 'EMAIL_SECRET');
+    if (/quota|limit/i.test(j.error || '')) throw new HttpError(429, 'Daily email limit reached. Please try again tomorrow.', 'EMAIL_QUOTA');
+    throw new HttpError(502, 'The OTP email could not be sent. Please try again.', 'EMAIL_FAILED');
+  }
+  return { sent: true };
+}
+
 async function sendSms(phone, code) {
   const p = config.otp.provider;
   if (p === 'dev') { console.log(`[otp] ${phone} -> ${code} (dev mode, no SMS sent)`); return { dev: true }; }
@@ -135,4 +169,4 @@ async function settings() {
   return { commission: s?.commission ?? d.commission, gst: s?.gst ?? d.gst, advance: s?.advance ?? d.advance, freeCancelHours: s?.freeCancelHours ?? d.freeCancelHours, maintenance: !!s?.maintenance };
 }
 
-module.exports = { sendSms, verifyStart, verifyCheck, createOrder, verifyPayment, mockSign, refund, storeFile, setIO, emitTo, notify, settings, makeCode, UPLOAD_DIR };
+module.exports = { sendSms, sendEmailOtp, verifyStart, verifyCheck, createOrder, verifyPayment, mockSign, refund, storeFile, setIO, emitTo, notify, settings, makeCode, UPLOAD_DIR };

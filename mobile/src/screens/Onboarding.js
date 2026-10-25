@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { useTheme, WALL } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { post } from '../lib/api';
+import { get, post } from '../lib/api';
 import { Body, Button, Card, Field, Muted, Row } from '../components/ui';
 
 const EVORA = require('../../assets/evora.png');
@@ -71,10 +71,13 @@ export function LoginScreen() {
   const [phone, setPhone] = useState(''); const [name, setName] = useState(''); const [invite, setInvite] = useState('');
   const [owner, setOwner] = useState(''); const [email, setEmail] = useState(''); const [city, setCity] = useState('Lucknow'); const [cat, setCat] = useState('Photography');
   const [agree, setAgree] = useState(false); const [adminOpen, setAdminOpen] = useState(false);
+  const [channel, setChannel] = useState(''); const [sentTo, setSentTo] = useState('');
   const [sent, setSent] = useState(false); const [code, setCode] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [wait, setWait] = useState(0);
   const t = useTheme(role); const timer = useRef(null);
   const signup = mode === 'signup';
   useEffect(() => () => clearInterval(timer.current), []);
+  useEffect(() => { get('/health').then((h) => setChannel(h.otpChannel || '')).catch(() => {}); }, []);
+  const emailOtp = channel === 'email';
   const startWait = () => { setWait(30); clearInterval(timer.current); timer.current = setInterval(() => setWait((w) => { if (w <= 1) { clearInterval(timer.current); return 0; } return w - 1; }), 1000); };
   const switchMode = (m, r) => { setMode(m); if (r) setRole(r); setSent(false); setErr(''); if (m === 'signup' && role === 'admin' && !adminOpen) setRole('customer'); };
   const body = (m = mode, r = role, p = phone) => ({ phone: p, role: r, mode: m, name: name.trim(), inviteCode: invite, email: email.trim(), city, category: cat, ownerName: owner.trim() });
@@ -85,6 +88,7 @@ export function LoginScreen() {
     if (role === 'vendor') { if (name.trim().length < 2) return 'Enter your business name.'; if (!NAME_OK.test(owner.trim())) return 'Enter your own name, using letters only.'; }
     else if (!NAME_OK.test(name.trim())) return 'Enter your full name, using letters only.';
     if (role === 'admin' && !invite.trim()) return 'Enter the admin invite code.';
+    if (emailOtp && !email.trim()) return 'Enter your email. We send the OTP to it.';
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return 'Enter a valid email, or leave it empty.';
     if (!agree) return 'Please accept the Terms and Privacy Policy.';
     return '';
@@ -95,7 +99,8 @@ export function LoginScreen() {
     setBusy(true);
     try {
       const res = await post('/auth/otp', body(m, r, p));
-      setSent(true); startWait();
+      setSent(true); startWait(); setSentTo(res.to || '');
+      if (res.to) toast(`OTP sent to ${res.to}. Check Inbox or Spam.`);
       if (res.devCode) { toast(`Test OTP: ${res.devCode}`); if (fill) setCode(res.devCode); }
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
@@ -134,7 +139,7 @@ export function LoginScreen() {
               {role === 'vendor' ? <View style={{ gap: 6 }}><Muted>Service category</Muted><Chips list={SU_CATS} value={cat} onPick={setCat} /></View> : null}
               {role !== 'admin' ? <View style={{ gap: 6 }}><Muted>City</Muted><Chips list={SU_CITIES} value={city} onPick={setCity} /></View> : null}
               {role === 'admin' ? <Field label="Admin invite code" value={invite} onChangeText={setInvite} autoCapitalize="characters" /> : null}
-              <Field label="Email (optional)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" />
+              <Field label={emailOtp ? 'Email (we send your OTP here)' : 'Email (optional)'} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" />
             </View>
           ) : null}
           {signup && sent ? <Card><Row between><View style={{ flex: 1 }}><Body bold>{name}</Body><Muted>{[{ customer: 'Customer', vendor: 'Vendor', admin: 'Admin' }[role], role === 'vendor' ? cat : null, role !== 'admin' ? city : null].filter(Boolean).join(' · ')}</Muted></View><Button small kind="soft" title="Edit details" onPress={() => setSent(false)} /></Row></Card> : null}
@@ -142,7 +147,7 @@ export function LoginScreen() {
           {signup && !sent ? <Pressable onPress={() => setAgree(!agree)} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}><View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: agree ? t.ac : t.line, backgroundColor: agree ? t.ac : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{agree ? <Text style={{ color: t.onAc, fontWeight: '800' }}>✓</Text> : null}</View><Text style={{ flex: 1, color: t.fg }}>I agree to the Terms of Service and Privacy Policy.</Text></Pressable> : null}
           {sent ? (
             <View style={{ gap: 8 }}>
-              <Field label={`Enter the OTP sent to +91 ${phone}`} value={code} onChangeText={(v) => { const c = v.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) verify(c); }} keyboardType="number-pad" maxLength={6} style={{ letterSpacing: 8, fontSize: 20, textAlign: 'center' }} />
+              <Field label={sentTo ? `Enter the OTP sent to ${sentTo}` : `Enter the OTP sent to +91 ${phone}`} value={code} onChangeText={(v) => { const c = v.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) verify(c); }} keyboardType="number-pad" maxLength={6} style={{ letterSpacing: 8, fontSize: 20, textAlign: 'center' }} />
               <Row between><Button small kind="soft" title="Change number" onPress={() => setSent(false)} /><Button small kind="ghost" title={wait ? `Resend in 0:${String(wait).padStart(2, '0')}` : 'Resend OTP'} disabled={!!wait} onPress={() => sendOtp()} /></Row>
             </View>
           ) : null}

@@ -17,6 +17,7 @@ const config = {
     ttlMinutes: 5,
     maxAttempts: 5,
     resendSeconds: 30,
+    email: { webhookUrl: (process.env.EMAIL_WEBHOOK_URL || '').trim(), secret: (process.env.EMAIL_WEBHOOK_SECRET || '').trim(), fromName: process.env.EMAIL_FROM_NAME || 'Eventique' },
     fallbackScreen: process.env.OTP_FALLBACK_SCREEN === 'true', // if SMS fails, show the code on screen instead (demo safety net)
     msg91: { authKey: process.env.MSG91_AUTH_KEY, templateId: process.env.MSG91_TEMPLATE_ID },
     twilio: { sid: (process.env.TWILIO_SID || '').trim(), token: (process.env.TWILIO_TOKEN || '').trim(), from: (process.env.TWILIO_FROM || '').trim(), verifySid: (process.env.TWILIO_VERIFY_SID || '').trim() },
@@ -41,7 +42,7 @@ const config = {
 };
 
 config.isProd = config.env === 'production';
-config.otp.provider = require('./lib/core').pickOtpProvider({ provider: process.env.OTP_PROVIDER, ...config.otp.twilio });
+config.otp.provider = require('./lib/core').pickOtpProvider({ provider: process.env.OTP_PROVIDER, ...config.otp.twilio, emailReady: !!(config.otp.email.webhookUrl && config.otp.email.secret) });
 console.log(`[config] OTP provider: ${config.otp.provider}`);
 config.paymentsMock = !(config.razorpay.keyId && config.razorpay.keySecret);
 

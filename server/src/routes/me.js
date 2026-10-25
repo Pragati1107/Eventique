@@ -2,8 +2,8 @@ const router = require('express').Router();
 const multer = require('multer');
 const config = require('../config');
 const { User, Vendor, Otp, Notification, Card } = require('../models');
-const { HttpError, asyncH, isPhone, isEmail, isDate, str, int, generateOtp, hashOtp, safeEqual } = require('../lib/core');
-const { sendSms, verifyStart, verifyCheck, storeFile } = require('../services');
+const { HttpError, asyncH, isPhone, isEmail, isDate, str, int, generateOtp, hashOtp, safeEqual, maskEmail } = require('../lib/core');
+const { sendSms, sendEmailOtp, verifyStart, verifyCheck, storeFile } = require('../services');
 const { auth } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -44,6 +44,12 @@ router.post('/phone/otp', asyncH(async (req, res) => {
     return res.json({ sent: true });
   }
   const code = generateOtp();
+  if (config.otp.provider === 'email') {
+    if (!req.user.email) throw new HttpError(400, 'Add your email in your profile first. We send the OTP to it.');
+    await sendEmailOtp(req.user.email, code, req.user.name);
+    await Otp.create({ phone, purpose: 'change-phone', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt: new Date(Date.now() + config.otp.ttlMinutes * 60e3) });
+    return res.json({ sent: true, channel: 'email', to: maskEmail(req.user.email) });
+  }
   await sendSms(phone, code);
   await Otp.create({ phone, purpose: 'change-phone', codeHash: hashOtp(phone, code, config.jwtSecret), expiresAt: new Date(Date.now() + config.otp.ttlMinutes * 60e3) });
   res.json({ sent: true, ...(config.otp.provider === 'dev' ? { devCode: code } : {}) });

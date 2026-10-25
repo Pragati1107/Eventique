@@ -88,4 +88,11 @@ test('OTP provider: auto picks Twilio only when its keys are set', () => {
   assert.strictEqual(c.pickOtpProvider({ provider: 'auto', sid: 'AC1', token: 't', from: '+1555' }), 'twilio');
   assert.strictEqual(c.pickOtpProvider({ provider: 'dev', sid: 'AC1', token: 't', verifySid: 'VA1' }), 'dev');
   assert.strictEqual(c.pickOtpProvider({ provider: 'twilio', verifySid: 'VA1' }), 'twilio_verify');
+  assert.strictEqual(c.pickOtpProvider({ provider: 'auto', sid: 'AC1', token: 't', from: '+1555', emailReady: true }), 'email');
+});
+
+test('email masking', () => {
+  assert.strictEqual(c.maskEmail('pragati@gmail.com'), 'p*****i@gmail.com');
+  assert.strictEqual(c.maskEmail('ab@x.in'), 'a*@x.in');
+  assert.strictEqual(c.maskEmail('nope'), '');
 });

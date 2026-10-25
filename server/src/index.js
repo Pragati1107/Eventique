@@ -24,7 +24,7 @@ if (!config.isProd) app.use(morgan('dev'));
 app.post('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }), (req, res, next) => payments.webhook(req, res).catch(next));
 app.use(express.json({ limit: '1mb' }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, db: mongoose.connection.readyState === 1, paymentsMode: config.paymentsMock ? 'mock' : 'razorpay', otpProvider: config.otp.provider, translate: translate.enabled }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, db: mongoose.connection.readyState === 1, paymentsMode: config.paymentsMock ? 'mock' : 'razorpay', otpProvider: config.otp.provider, otpChannel: config.otp.provider === 'email' ? 'email' : config.otp.provider === 'dev' ? 'screen' : 'sms', translate: translate.enabled }));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/me', require('./routes/me'));
 app.use('/api', require('./routes/vendors'));

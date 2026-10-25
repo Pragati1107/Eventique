@@ -54,13 +54,18 @@ const verifyWebhookSignature = (rawBody, signature, secret) =>
   !!(rawBody && signature && secret) && safeEqual(hmacHex(secret, rawBody), signature);
 
 /* ---------- OTP provider ---------- */
-/** auto = Twilio when its keys are set, otherwise dev (code shown on screen). */
-function pickOtpProvider({ provider, sid, token, verifySid, from }) {
+/** auto = email when the email sender is set, else Twilio when its keys are set, else dev (code shown on screen). */
+function pickOtpProvider({ provider, sid, token, verifySid, from, emailReady }) {
   const p = String(provider || 'auto').toLowerCase();
   const twilioReady = !!(sid && token && (verifySid || from));
-  if (p === 'auto') return twilioReady ? (verifySid ? 'twilio_verify' : 'twilio') : 'dev';
+  if (p === 'auto') return emailReady ? 'email' : twilioReady ? (verifySid ? 'twilio_verify' : 'twilio') : 'dev';
   if (p === 'twilio') return verifySid ? 'twilio_verify' : 'twilio';
   return p;
+}
+/** p****a@gmail.com */
+function maskEmail(e) {
+  const [u, d] = String(e || '').split('@'); if (!d) return '';
+  return (u.length <= 2 ? u[0] + '*' : u[0] + '*'.repeat(Math.min(6, u.length - 2)) + u.slice(-1)) + '@' + d;
 }
 
 /* ---------- bookings ---------- */
@@ -82,5 +87,5 @@ function refundFor(booking, now, freeCancelHours, byRole) {
 module.exports = {
   HttpError, asyncH, isPhone, isDate, isEmail, str, int, pick, escapeRegex,
   priceBooking, payoutFor, makeCode, generateOtp, hashOtp, safeEqual,
-  verifyPaymentSignature, verifyWebhookSignature, hmacHex, canTransition, refundFor, TRANSITIONS, pickOtpProvider,
+  verifyPaymentSignature, verifyWebhookSignature, hmacHex, canTransition, refundFor, TRANSITIONS, pickOtpProvider, maskEmail,
 };
