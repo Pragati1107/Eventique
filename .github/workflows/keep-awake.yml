@@ -1,12 +1,19 @@
-# Pings the live app every 10 minutes so Render's free plan doesn't put it to sleep.
+# Keeps the free Render server awake: Render puts it to sleep after 15 minutes without visits.
+# GitHub runs this every 10 minutes for free (public repository). You can also run it by hand from the Actions tab.
 name: Keep Eventique awake
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Ping health endpoint
-        run: curl -fsS --retry 3 --retry-delay 20 --max-time 90 https://eventique-k2aj.onrender.com/api/health || true
+      - name: Ping the server
+        run: |
+          for i in 1 2 3; do
+            if curl -fsS --max-time 90 https://eventique-k2aj.onrender.com/api/health; then echo; echo "Server is awake"; exit 0; fi
+            echo "Attempt $i failed, retrying in 20s"; sleep 20
+          done
+          echo "Server did not answer"; exit 1
