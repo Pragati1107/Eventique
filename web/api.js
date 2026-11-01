@@ -359,8 +359,11 @@
       window.getSample = async () => ({
         json: async (prompt) => {
           const texts = JSON.parse(prompt.slice(prompt.lastIndexOf('\n\n[') + 2));
-          const r = await fetch(API + '/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang: langOf(S.lang)[2] }) });
-          if (!r.ok) { const e = new Error('translate failed'); e.code = r.status === 429 ? 'rate_limited' : 'unavailable'; throw e; }
+          let r;
+          try { r = await fetch(API + '/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts, lang: langOf(S.lang)[2] }) }); } catch (e) { return googleTr(S.lang, texts); }
+          if (r.status === 501) { const j = await r.json().catch(() => ({})); const e = new Error(j.error || 'This language is not available yet. Showing English.'); e.code = 'unsupported'; throw e; }
+          if (r.status === 429) { const e = new Error('busy'); e.code = 'rate_limited'; throw e; }
+          if (!r.ok) return googleTr(S.lang, texts); // server could not reach the translator: try straight from the browser
           return (await r.json()).translations;
         },
       });
