@@ -1357,10 +1357,10 @@ function locBtn(){const st=(CITIES.find(c=>c[0]===S.city)||[,'India'])[1];
 function cityPicker(){const cnt=c=>VENDORS.filter(v=>c==='All cities'||v.city===c).length;
   openSheet(`<div class="stack"><h3 style="font-size:20px">Choose your city</h3>
    <div class="input">${ic('search')}<input id="csrch" placeholder="Search city…" oninput="filterCities(this.value)" autocomplete="off"></div>
-   <button class="btn soft block" onclick="toast('Location access is not available in this demo. Please pick a city.')">${ic('pin',sm)}<span>Use my current location</span></button>
+   <button class="btn soft block" onclick="closeSheet();autoLocate(true)">${ic('pin',sm)}<span>Use my current location</span></button>${S.here?`<div class="muted" style="font-size:12.5px;text-align:center">You are in <b>${esc(S.here.name)}</b>${S.here.state?', '+esc(S.here.state):''}</div>`:''}
    <div id="clist" class="stack" style="gap:6px">${[["All cities","Show vendors everywhere"],...CITIES].map(([c,st])=>`<button class="pkg city-opt ${S.city===c?'on':''}" data-c="${c.toLowerCase()}" onclick="setCity('${c}')"><div class="row between"><b>${c}</b><span class="muted num" style="font-size:12.5px">${cnt(c)} vendors</span></div><span class="muted" style="font-size:12.5px">${st}</span></button>`).join('')}</div></div>`)}
 function filterCities(q){document.querySelectorAll('.city-opt').forEach(b=>b.hidden=!b.dataset.c.includes(q.toLowerCase().trim()))}
-function setCity(c){S.city=c;try{localStorage.setItem('evq-city',c)}catch(e){}closeSheet();toast('Location: '+c);setTimeout(()=>render(true),200)}
+function setCity(c){S.city=c;S.cityPicked=true;try{localStorage.setItem('evq-city',c)}catch(e){}closeSheet();toast('Location: '+c);setTimeout(()=>render(true),200)}
 function cEvents(){
   const n=first(S.user.name);const q=S.q.trim().toLowerCase();
   let body;
@@ -2562,6 +2562,41 @@ function readIdent(){
   if(!/^[6-9]\d{9}$/.test(d)){setFieldErr('ph','Enter your email or 10-digit mobile number.');return false}
   return true}
 function useDemo(r){S.role=r;S.mode="login";S.ident='';S.loginEmail='';S.phone=DEMO[r].phone;S.otpSent=false;render();sendOtp(true)}
+
+/* ---------- Current location: detected when the app opens (customer dashboard) ---------- */
+const CITY_LL={Lucknow:[26.8467,80.9462],Kanpur:[26.4499,80.3319],Prayagraj:[25.4358,81.8463],Varanasi:[25.3176,82.9739],Fatehpur:[25.9304,80.8139],Agra:[27.1767,78.0081],Delhi:[28.6139,77.209],Jaipur:[26.9124,75.7873]};
+function kmBetween(a,b){const R=6371,r=x=>x*Math.PI/180,dLa=r(b[0]-a[0]),dLo=r(b[1]-a[1]);const h=Math.sin(dLa/2)**2+Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+async function placeName(lat,lng){
+  try{const j=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`).then(r=>r.json());
+    const name=j.city||j.locality;if(name)return{name,state:j.principalSubdivision||'',area:j.locality&&j.locality!==name?j.locality:''}}catch(e){}
+  try{const a=(await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=12&accept-language=en`).then(r=>r.json())).address||{};
+    const name=a.city||a.town||a.village||a.county||a.state_district;if(name)return{name,state:a.state||'',area:a.suburb||''}}catch(e){}
+  return null}
+function autoLocate(manual){
+  if(!navigator.geolocation){if(manual)toast('This browser cannot share location. Please pick a city.');return}
+  autoLocate.done=true;if(manual)toast('Finding your location…');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const here=[pos.coords.latitude,pos.coords.longitude];
+    let best=null;for(const [c,ll] of Object.entries(CITY_LL)){const km=kmBetween(here,ll);if(!best||km<best.km)best={city:c,km}}
+    const pl=await placeName(here[0],here[1])||{name:best.km<40?best.city:'your area',state:''};
+    const listed=CITIES.find(c=>c[0].toLowerCase()===String(pl.name).toLowerCase());
+    S.here={...pl,lat:here[0],lng:here[1]};
+    if(S.cityPicked&&!manual)return render(true);
+    const prev=S.city;let msg;
+    if(listed||best.km<40){S.city=listed?listed[0]:best.city;msg=`Location: ${S.city}`}
+    else if(best.km<=300){S.city=best.city;msg=`No vendors in ${pl.name} yet. Showing the nearest city, ${best.city} (about ${Math.round(best.km)} km).`}
+    else{S.city='All cities';msg=`No vendors near ${pl.name} yet. Showing vendors from all cities.`}
+    try{localStorage.setItem('evq-city',S.city)}catch(e){}
+    if(manual||S.city!==prev||!listed)toast(msg);
+    render(true)},
+  err=>{if(!manual)return;
+    toast(err.code===1?'Location is blocked. Tap the lock icon in the address bar, allow Location, then try again.':'Could not find your location. Please pick a city.')},
+  {enableHighAccuracy:false,timeout:15000,maximumAge:600000})}
+function locBtn(){const st=(CITIES.find(c=>c[0]===S.city)||[,'India'])[1];const h=S.here;
+  const sameCity=h&&String(h.name).toLowerCase()===S.city.toLowerCase();
+  const top=h?(sameCity?`Current location${h.area?' · '+esc(h.area):''}`:`You are in ${esc(h.name)} · nearest city`):'Event location';
+  return `<button class="locbtn" onclick="cityPicker()" aria-label="Change location"><span class="ic">${ic('pin')}</span><span style="min-width:0"><span class="muted" style="font-size:11.5px;display:block;line-height:1.2">${top}</span><b>${esc(S.city)}</b><span class="muted">${S.city==='All cities'?'':', '+st}</span> <span style="color:var(--ac)">▾</span></span></button>`}
+{const _r=render;render=function(...a){const out=_r.apply(this,a);if(!autoLocate.done&&S.screen==='dash'&&S.role==='customer')setTimeout(()=>autoLocate(false),400);return out}}
 
 render();
 
