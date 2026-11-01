@@ -16,7 +16,7 @@ const viaVerify = (phone) => config.otp.provider === 'twilio_verify' && !isDemo(
 
 /** Login needs no role: find the account by mobile number or email and use its own role. */
 async function resolveLogin(body) {
-  if (body.mode === 'signup') return;
+  if (body.mode === 'signup') return checkApp(body, body.role);
   let u = null;
   if (isPhone(body.phone)) u = await User.findOne({ phone: body.phone });
   else {
@@ -28,6 +28,14 @@ async function resolveLogin(body) {
   }
   if (u) body.role = u.role;
   else if (!ROLES.includes(body.role)) body.role = 'customer';
+  checkApp(body, body.role);
+}
+
+/** The admin app is only for admins; the Eventique app (web and phone) is only for customers and vendors. */
+function checkApp(body, role) {
+  const adminApp = body.app === 'admin';
+  if (adminApp && role !== 'admin') throw new HttpError(403, 'This is the Eventique Admin app. Customers and vendors use the Eventique app.');
+  if (!adminApp && role === 'admin') throw new HttpError(403, 'Admins log in from the Eventique Admin app.');
 }
 
 function checkIntent(body) {

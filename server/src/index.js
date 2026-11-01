@@ -39,6 +39,7 @@ app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found')));
 // Static files: uploaded images, bundled demo images, and the web app.
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }));
 app.use('/img', express.static(path.join(__dirname, '..', 'public', 'img'), { maxAge: '30d' }));
+app.get(['/admin', '/admin/'], (_req, res) => res.sendFile(path.join(__dirname, '..', '..', 'web', 'admin.html')));
 app.use(express.static(path.join(__dirname, '..', '..', 'web')));
 
 // Errors -> JSON

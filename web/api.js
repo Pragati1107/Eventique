@@ -7,7 +7,8 @@
    ===================================================================== */
 (function () {
   const API = (window.EVQ_API_BASE || '') + '/api';
-  let TOKEN = null; try { TOKEN = localStorage.getItem('evq-token'); } catch (e) {}
+  const TKEY = window.EVQ_APP === 'admin' ? 'evq-admin-token' : 'evq-token';
+  let TOKEN = null; try { TOKEN = localStorage.getItem(TKEY); } catch (e) {}
   let socket = null;
   const sidMap = { vendor: new Map(), task: new Map(), guest: new Map(), thread: new Map() };
 
@@ -22,7 +23,7 @@
   }
   const get = (p) => call('GET', p), post = (p, b) => call('POST', p, b || {}), patch = (p, b) => call('PATCH', p, b), put = (p, b) => call('PUT', p, b), del = (p) => call('DELETE', p);
   const fail = (e) => { toast(e.message || 'Something went wrong'); };
-  function setToken(t) { TOKEN = t; try { t ? localStorage.setItem('evq-token', t) : localStorage.removeItem('evq-token'); } catch (e) {} }
+  function setToken(t) { TOKEN = t; try { t ? localStorage.setItem(TKEY, t) : localStorage.removeItem(TKEY); } catch (e) {} }
   const tm = (d) => { const x = new Date(d); const diff = (Date.now() - x) / 1000; return diff < 60 ? 'just now' : diff < 3600 ? Math.round(diff / 60) + ' min' : diff < 86400 ? Math.round(diff / 3600) + ' hr' : x.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); };
   const clock = (d) => { const x = new Date(d); return `${x.getHours()}:${String(x.getMinutes()).padStart(2, '0')}`; };
   const phoneFmt = (p) => (p ? p.slice(0, 5) + ' ' + p.slice(5) : '');
@@ -159,7 +160,7 @@
     window.gmv = () => (S.ov ? S.ov.gmv : 0);
 
     /* auth */
-    const authBody = () => { const su = suInit(); return { phone: S.phone, role: S.role, mode: S.mode, name: (S.name || '').trim(), inviteCode: su.invite, email: S.mode === 'login' && S.loginEmail ? S.loginEmail : su.email.trim(), city: su.city, category: su.cat, ownerName: (su.owner || '').trim(), eventDate: su.eventDate }; };
+    const authBody = () => { const su = suInit(); return { phone: S.phone, role: S.role, mode: S.mode, name: (S.name || '').trim(), inviteCode: su.invite, email: S.mode === 'login' && S.loginEmail ? S.loginEmail : su.email.trim(), city: su.city, category: su.cat, ownerName: (su.owner || '').trim(), eventDate: su.eventDate, app: window.EVQ_APP === 'admin' ? 'admin' : 'main' }; };
     const showAuthError = (e) => {
       const m = esc(e.message || 'Something went wrong. Please try again.');
       let extra = '';
@@ -198,7 +199,7 @@
         if (r.created) welcomeNew({ name: r.user.name, business: r.vendor ? r.vendor.name : '' }); else toast('Logged in');
       } catch (e) { showAuthError(e); document.querySelectorAll('#otp input').forEach((x) => (x.value = '')); const o = document.getElementById('o0'); if (o) o.focus(); }
     };
-    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.role = 'customer'; S.otpSent = false; S.otpTo = ''; S.ident = ''; S.loginEmail = ''; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
+    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.role = window.EVQ_APP === 'admin' ? 'admin' : 'customer'; S.otpSent = false; S.otpTo = ''; S.ident = ''; S.loginEmail = ''; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
 
     /* profile */
     window.saveEdit = async function () {
@@ -341,7 +342,7 @@
     if (!h) return;
     S.otpChannel = h.otpChannel || ''; install(); if (S.screen === 'auth') render();
     const badge = document.createElement('div'); badge.className = 'livebadge'; badge.textContent = h.paymentsMode === 'mock' ? 'Live server · test payments' : 'Live server'; document.body.appendChild(badge);
-    if (TOKEN) { try { await loadAll(); stopTour(); S.screen = 'dash'; S.page = { customer: 'events', vendor: 'vdash', admin: 'adash' }[S.role]; render(); } catch (e) { setToken(null); } }
+    if (TOKEN) { try { await loadAll(); if ((S.role === 'admin') !== (window.EVQ_APP === 'admin')) throw new Error('wrong app'); stopTour(); S.screen = 'dash'; S.page = { customer: 'events', vendor: 'vdash', admin: 'adash' }[S.role]; render(); } catch (e) { setToken(null); S.screen = window.EVQ_APP === 'admin' ? 'auth' : S.screen; render(); } }
   }).catch(() => { /* not served by the API: stay in demo mode */ });
 })();
 
