@@ -2412,7 +2412,9 @@ function authBase(){
   const fld=(id,label,inner,opt,hint)=>`<div class="field"><label for="${id}">${label}${opt?' <span class="opt">optional</span>':''}</label>${inner}${hint?`<div class="hint">${hint}</div>`:''}<div class="ferr" id="e_${id}"></div></div>`;
   const inp=(id,val,ph,on,extra='')=>`<div class="input"><input id="${id}" value="${esc(val||'')}" placeholder="${ph}" oninput="${on}" ${extra}></div>`;
   const sel=(id,opts,val,on)=>`<div class="input"><select id="${id}" onchange="${on}">${opts.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
-  const phoneField=fld('ph','Mobile number',`<div class="input"><span class="prefix">+91</span><input id="ph" inputmode="numeric" autocomplete="tel-national" maxlength="10" value="${S.phone}" oninput="S.phone=this.value.replace(/\\D/g,'');this.value=S.phone" placeholder="98765 43210" ${sent?'disabled':''}></div>`,false,signup&&!sent?'We send a 6-digit OTP to verify this number. No password needed.':'');
+  let phoneField=fld('ph','Mobile number',`<div class="input"><span class="prefix">+91</span><input id="ph" inputmode="numeric" autocomplete="tel-national" maxlength="10" value="${S.phone}" oninput="S.phone=this.value.replace(/\\D/g,'');this.value=S.phone" placeholder="98765 43210" ${sent?'disabled':''}></div>`,false,signup&&!sent?'We send a 6-digit OTP to verify this number. No password needed.':'');
+  const emailLogin=!signup&&S.otpChannel==='email';
+  if(emailLogin)phoneField=fld('ph','Email or mobile number',`<div class="input"><input id="ph" type="text" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" value="${esc(S.ident!=null&&S.ident!==''?S.ident:S.phone)}" oninput="S.ident=this.value" placeholder="you@gmail.com" ${sent?'disabled':''}></div>`,false,sent?'':'We email a 6-digit OTP to the address saved on your account.');
   const cities=CITIES.map(c=>c[0]);
   const cats=CATS.filter(c=>c.active!==false).map(c=>c.name);
   let details='';
@@ -2433,8 +2435,8 @@ function authBase(){
   const sumBits=[roleWord(S.role)].concat(S.role==='vendor'?[su.cat]:[]).concat(S.role==='admin'?[]:[su.city]);
   const summary=signup&&sent?`<div class="su-sum"><div><b>${esc(S.name)}</b><small>${esc(sumBits.join(' · '))}</small></div><button class="btn sm soft" onclick="changeNum()"><span>Edit details</span></button></div>`:'';
   const terms=signup&&!sent?`<label class="check" for="agree"><input type="checkbox" id="agree" ${su.agree?'checked':''} onchange="S.su.agree=this.checked;document.getElementById('e_agree').textContent=''"><span>I agree to the <a href="#" onclick="event.preventDefault();showTerms()">Terms of Service</a> and <a href="#" onclick="event.preventDefault();showTerms()">Privacy Policy</a>.</span></label><div class="ferr" id="e_agree"></div>`:'';
-  const otp=sent?`<div class="field"><label>${S.otpTo?`Enter the OTP sent to ${esc(S.otpTo)}`:`Enter the OTP sent to +91 ${S.phone}`}</label>${S.otpTo?'<div class="muted" style="font-size:12.5px;margin:-2px 0 6px">Check your inbox. If it is not there, look in Spam or Promotions.</div>':''}<div class="otp" id="otp">${[0,1,2,3,4,5].map(i=>`<input id="o${i}" inputmode="numeric" autocomplete="${i?'off':'one-time-code'}" maxlength="1" aria-label="Digit ${i+1}">`).join('')}</div>
-     <div class="row between" style="font-size:13px"><button class="btn sm soft" onclick="changeNum()"><span>${signup?'Change number':'Change number'}</span></button><span id="rs" class="muted"></span></div></div>`:'';
+  const otp=sent?`<div class="field"><label>${S.otpTo?`Enter the OTP sent to ${esc(S.otpTo)}`:`Enter the OTP sent to ${S.phone?'+91 '+S.phone:esc(S.loginEmail||'')}`}</label>${S.otpTo?'<div class="muted" style="font-size:12.5px;margin:-2px 0 6px">Check your inbox. If it is not there, look in Spam or Promotions.</div>':''}<div class="otp" id="otp">${[0,1,2,3,4,5].map(i=>`<input id="o${i}" inputmode="numeric" autocomplete="${i?'off':'one-time-code'}" maxlength="1" aria-label="Digit ${i+1}">`).join('')}</div>
+     <div class="row between" style="font-size:13px"><button class="btn sm soft" onclick="changeNum()"><span>${!signup&&S.otpChannel==='email'?'Change email':'Change number'}</span></button><span id="rs" class="muted"></span></div></div>`:'';
   const btn=sent?(signup?'Verify & create account':'Verify & log in'):(signup?'Continue':'Send OTP');
   const switcher=signup?`<div class="su-switch">Already have an account? <button class="linkbtn" onclick="setMode('login')">Log in</button></div>`
     :`<div class="su-switch">New to Eventique? <button class="linkbtn" onclick="setMode('signup')">Create an account</button></div>`;
@@ -2446,7 +2448,7 @@ function authBase(){
     :(S.role==='admin'?`<div class="muted" style="font-size:12px">Demo admin invite code: <code>${ADMIN_CODE}</code></div>`:'');
   return `<div class="screen"><div class="topbar"><button class="iconbtn" onclick="goScreen('welcome')" aria-label="Back">${ic('back')}</button><span class="row" style="gap:6px"><img src="${LOGO_E}" alt="" style="width:30px;height:30px;border-radius:50%;flex:none"><span class="brandmark">Eventique</span></span>${themeBtn()}</div>
   <div class="scroll" style="padding-bottom:40px"><div class="auth" style="padding:0">
-   <div><h2 style="font-size:28px">${signup?'Create your account':'Welcome back'}</h2><div class="muted">${signup?(S.otpChannel==='email'?'Join Eventique in under a minute. Just your details and an OTP on email.':'Join Eventique in under a minute. Just your details and a mobile OTP.'):(S.otpChannel==='email'?'Log in with your mobile number. We will email you a 6-digit OTP.':'Log in with your mobile number. We will send a 6-digit OTP.')}</div></div>
+   <div><h2 style="font-size:28px">${signup?'Create your account':'Welcome back'}</h2><div class="muted">${signup?(S.otpChannel==='email'?'Join Eventique in under a minute. Just your details and an OTP on email.':'Join Eventique in under a minute. Just your details and a mobile OTP.'):(S.otpChannel==='email'?'Log in with your email or mobile number. We will email you a 6-digit OTP.':'Log in with your mobile number. We will send a 6-digit OTP.')}</div></div>
    <div class="seg"><button class="${!signup?'on':''}" onclick="setMode('login')">Log in</button><button class="${signup?'on':''}" onclick="setMode('signup')">Create account</button></div>
    ${signup?`<div class="su-steps"><span class="on"><i>1</i>Your details</span><b></b><span class="${sent?'on':''}"><i>2</i>${S.otpChannel==='email'?'Verify OTP':'Verify mobile'}</span></div>`:''}
    ${sent&&signup?'':`<div class="field"><label>${signup?'I am joining as':'Continue as'}</label><div class="roles" style="grid-template-columns:repeat(${roles.length},1fr)">${roles.map(r=>`<button class="role ${S.role===r[0]?'on':''}" data-r="${r[0]}" onclick="setRole('${r[0]}')" ${sent?'disabled':''}><span class="sw">${ic(r[3],sm)}</span>${r[1]}<small>${signup?({customer:'Plan my event',vendor:'List my services',admin:'Manage the app'})[r[0]]:r[2]}</small></button>`).join('')}</div>${adminLink}</div>`}
@@ -2457,7 +2459,7 @@ function authBase(){
    ${demo}
   </div></div></div>`;
 }
-function setMode(m){S.mode=m;S.otpSent=false;S.otpTo='';suInit();render()}
+function setMode(m){S.mode=m;S.otpSent=false;S.otpTo='';S.ident='';S.loginEmail='';suInit();render()}
 function setRole(r){S.role=r;S.otpSent=false;render()}
 function goSignup(){S.mode='signup';S.otpSent=false;render();setTimeout(()=>document.getElementById('nm')?.focus(),80)}
 function goLogin(role){S.mode='login';if(role)S.role=role;S.otpSent=false;render()}
@@ -2538,6 +2540,19 @@ function welcomeNew(acc){
     <button class="btn block" onclick="closeSheet()"><span>${S.role==='vendor'?'Complete my profile':'Let’s start'}</span></button></div>`);
 }
 function logout(){S.screen="auth";S.mode="login";S.otpSent=false;S.phone="";S.name="";S.su=null;S.user=null;S.page="";S.hist=[];closeSheet();render()}
+
+/* Login field accepts an email or a mobile number when OTPs go by email. */
+function readIdent(){
+  if(S.mode!=='login'||S.otpChannel!=='email'){S.loginEmail='';return true}
+  const v=(S.ident!=null&&S.ident!==''?S.ident:S.phone||'').trim();
+  if(v.includes('@')){
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){setFieldErr('ph','Enter a valid email, like name@gmail.com');return false}
+    S.loginEmail=v.toLowerCase();S.phone='';return true}
+  let d=v.replace(/\D/g,'');if(d.length===12&&d.startsWith('91'))d=d.slice(2);if(d.length===11&&d.startsWith('0'))d=d.slice(1);
+  S.loginEmail='';S.phone=d;
+  if(!/^[6-9]\d{9}$/.test(d)){setFieldErr('ph','Enter your email or 10-digit mobile number.');return false}
+  return true}
+function useDemo(r){S.role=r;S.mode="login";S.ident='';S.loginEmail='';S.phone=DEMO[r].phone;S.otpSent=false;render();sendOtp(true)}
 
 render();
 

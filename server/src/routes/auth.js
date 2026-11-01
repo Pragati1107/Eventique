@@ -14,6 +14,16 @@ const isDemo = (phone) => config.otp.demoPhones.includes(phone);
 const viaEmail = () => config.otp.provider === 'email';
 const viaVerify = (phone) => config.otp.provider === 'twilio_verify' && !isDemo(phone);
 
+/** Login may use the email instead of the mobile number: find the account and fill in its phone. */
+async function resolveLogin(body) {
+  if (body.mode === 'signup' || isPhone(body.phone)) return;
+  const email = str(body.email, 120).toLowerCase();
+  if (!isEmail(email)) throw new HttpError(400, 'Enter your email or 10-digit mobile number.');
+  const u = await User.findOne({ email });
+  if (!u) throw new HttpError(404, 'No account with this email yet. Please sign up first.');
+  body.phone = u.phone;
+}
+
 function checkIntent(body) {
   const { phone, role, mode, name, inviteCode } = body;
   if (!isPhone(phone)) throw new HttpError(400, 'Enter a valid 10-digit Indian mobile number.');
@@ -29,12 +39,14 @@ function checkIntent(body) {
 
 /** Step 1: send an OTP. */
 router.post('/otp', asyncH(async (req, res) => {
+  await resolveLogin(req.body);
   const { phone, role, mode = 'login' } = req.body;
   checkIntent(req.body);
   const existing = await User.findOne({ phone });
   if (mode === 'login' && !existing) throw new HttpError(404, 'No account with this number yet. Please sign up first.');
   if (mode === 'login' && existing.role !== role) throw new HttpError(409, `This number is registered as a ${existing.role}. Choose "${existing.role[0].toUpperCase() + existing.role.slice(1)}" to log in.`);
   if (mode === 'signup' && existing) throw new HttpError(409, 'An account with this number already exists. Please log in.');
+  if (mode === 'signup' && str(req.body.email) && await User.exists({ email: str(req.body.email, 120).toLowerCase() })) throw new HttpError(409, 'An account with this email already exists. Please log in.');
 
   const last = await Otp.findOne({ phone, purpose: 'login' }).sort({ createdAt: -1 });
   if (last && Date.now() - last.createdAt.getTime() < config.otp.resendSeconds * 1000) {
@@ -66,6 +78,7 @@ router.post('/otp', asyncH(async (req, res) => {
 
 /** Step 2: verify the OTP, then log in or create the account. */
 router.post('/verify', asyncH(async (req, res) => {
+  await resolveLogin(req.body);
   const { phone, role, mode = 'login', name, code } = req.body;
   checkIntent(req.body);
   if (!/^\d{6}$/.test(String(code || ''))) throw new HttpError(400, 'Enter all 6 digits of the OTP.');

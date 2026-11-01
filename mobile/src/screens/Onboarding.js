@@ -68,7 +68,7 @@ const NAME_OK = /^[A-Za-zÀ-ɏ .'-]{2,60}$/;
 export function LoginScreen() {
   const { login, toast } = useApp();
   const [role, setRole] = useState('customer'); const [mode, setMode] = useState('login');
-  const [phone, setPhone] = useState(''); const [name, setName] = useState(''); const [invite, setInvite] = useState('');
+  const [phone, setPhone] = useState(''); const [ident, setIdent] = useState(''); const [loginEmail, setLoginEmail] = useState(''); const [name, setName] = useState(''); const [invite, setInvite] = useState('');
   const [owner, setOwner] = useState(''); const [email, setEmail] = useState(''); const [city, setCity] = useState('Lucknow'); const [cat, setCat] = useState('Photography');
   const [agree, setAgree] = useState(false); const [adminOpen, setAdminOpen] = useState(false);
   const [channel, setChannel] = useState(''); const [sentTo, setSentTo] = useState('');
@@ -80,10 +80,11 @@ export function LoginScreen() {
   const emailOtp = channel === 'email';
   const startWait = () => { setWait(30); clearInterval(timer.current); timer.current = setInterval(() => setWait((w) => { if (w <= 1) { clearInterval(timer.current); return 0; } return w - 1; }), 1000); };
   const switchMode = (m, r) => { setMode(m); if (r) setRole(r); setSent(false); setErr(''); if (m === 'signup' && role === 'admin' && !adminOpen) setRole('customer'); };
-  const body = (m = mode, r = role, p = phone) => ({ phone: p, role: r, mode: m, name: name.trim(), inviteCode: invite, email: email.trim(), city, category: cat, ownerName: owner.trim() });
+  const body = (m = mode, r = role, p = phone) => ({ phone: p, role: r, mode: m, name: name.trim(), inviteCode: invite, email: m === 'login' && loginEmail && p === phone ? loginEmail : email.trim(), city, category: cat, ownerName: owner.trim() });
 
   function validate() {
-    if (!/^[6-9]\d{9}$/.test(phone)) return 'Enter a valid 10-digit Indian mobile number.';
+    if (!signup && emailOtp && loginEmail) return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(loginEmail) ? '' : 'Enter a valid email, like name@gmail.com';
+    if (!/^[6-9]\d{9}$/.test(phone)) return emailOtp && !signup ? 'Enter your email or 10-digit mobile number.' : 'Enter a valid 10-digit Indian mobile number.';
     if (!signup) return '';
     if (role === 'vendor') { if (name.trim().length < 2) return 'Enter your business name.'; if (!NAME_OK.test(owner.trim())) return 'Enter your own name, using letters only.'; }
     else if (!NAME_OK.test(name.trim())) return 'Enter your full name, using letters only.';
@@ -109,7 +110,7 @@ export function LoginScreen() {
     try { const r = await login({ ...body(), code: c }); toast(r.created ? `Welcome to Eventique, ${r.user.name.split(' ')[0]}!${r.vendor ? ' Your profile goes live after verification.' : ''}` : 'Logged in'); }
     catch (e) { setErr(e.message); setCode(''); } finally { setBusy(false); }
   }
-  const useDemo = (r) => { setRole(r); setMode('login'); setPhone(DEMO[r]); setSent(false); setTimeout(() => sendOtp(DEMO[r], r, true, 'login'), 0); };
+  const useDemo = (r) => { setRole(r); setMode('login'); setPhone(DEMO[r]); setIdent(DEMO[r]); setLoginEmail(''); setSent(false); setTimeout(() => sendOtp(DEMO[r], r, true, 'login'), 0); };
   const roles = signup ? ROLES.filter(([k]) => k !== 'admin' || adminOpen) : ROLES;
   const errAction = /no account/i.test(err) ? ['Create an account', () => switchMode('signup')] : /already exists/i.test(err) ? ['Log in instead', () => switchMode('login')]
     : (/registered as a (customer|vendor|admin)/i.exec(err) || [])[1] ? [`Log in as ${/registered as a (\w+)/i.exec(err)[1]}`, () => switchMode('login', /registered as a (\w+)/i.exec(err)[1].toLowerCase())] : null;
@@ -143,11 +144,15 @@ export function LoginScreen() {
             </View>
           ) : null}
           {signup && sent ? <Card><Row between><View style={{ flex: 1 }}><Body bold>{name}</Body><Muted>{[{ customer: 'Customer', vendor: 'Vendor', admin: 'Admin' }[role], role === 'vendor' ? cat : null, role !== 'admin' ? city : null].filter(Boolean).join(' · ')}</Muted></View><Button small kind="soft" title="Edit details" onPress={() => setSent(false)} /></Row></Card> : null}
-          <Field label="Mobile number (+91)" value={phone} onChangeText={(v) => setPhone(v.replace(/\D/g, '').slice(0, 10))} keyboardType="number-pad" placeholder="98765 43210" editable={!sent} />
+          {!signup && emailOtp ? (
+            <Field label="Email or mobile number" value={ident} onChangeText={(v) => { setIdent(v); if (v.includes('@')) { setLoginEmail(v.trim().toLowerCase()); setPhone(''); } else { setLoginEmail(''); setPhone(v.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '').slice(0, 10)); } }} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="you@gmail.com" editable={!sent} />
+          ) : (
+            <Field label="Mobile number (+91)" value={phone} onChangeText={(v) => setPhone(v.replace(/\D/g, '').slice(0, 10))} keyboardType="number-pad" placeholder="98765 43210" editable={!sent} />
+          )}
           {signup && !sent ? <Pressable onPress={() => setAgree(!agree)} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}><View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: agree ? t.ac : t.line, backgroundColor: agree ? t.ac : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{agree ? <Text style={{ color: t.onAc, fontWeight: '800' }}>✓</Text> : null}</View><Text style={{ flex: 1, color: t.fg }}>I agree to the Terms of Service and Privacy Policy.</Text></Pressable> : null}
           {sent ? (
             <View style={{ gap: 8 }}>
-              <Field label={sentTo ? `Enter the OTP sent to ${sentTo}` : `Enter the OTP sent to +91 ${phone}`} value={code} onChangeText={(v) => { const c = v.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) verify(c); }} keyboardType="number-pad" maxLength={6} style={{ letterSpacing: 8, fontSize: 20, textAlign: 'center' }} />
+              <Field label={sentTo ? `Enter the OTP sent to ${sentTo}` : (phone ? `Enter the OTP sent to +91 ${phone}` : `Enter the OTP sent to ${loginEmail}`)} value={code} onChangeText={(v) => { const c = v.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) verify(c); }} keyboardType="number-pad" maxLength={6} style={{ letterSpacing: 8, fontSize: 20, textAlign: 'center' }} />
               <Row between><Button small kind="soft" title="Change number" onPress={() => setSent(false)} /><Button small kind="ghost" title={wait ? `Resend in 0:${String(wait).padStart(2, '0')}` : 'Resend OTP'} disabled={!!wait} onPress={() => sendOtp()} /></Row>
             </View>
           ) : null}

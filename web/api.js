@@ -159,7 +159,7 @@
     window.gmv = () => (S.ov ? S.ov.gmv : 0);
 
     /* auth */
-    const authBody = () => { const su = suInit(); return { phone: S.phone, role: S.role, mode: S.mode, name: (S.name || '').trim(), inviteCode: su.invite, email: su.email.trim(), city: su.city, category: su.cat, ownerName: (su.owner || '').trim(), eventDate: su.eventDate }; };
+    const authBody = () => { const su = suInit(); return { phone: S.phone, role: S.role, mode: S.mode, name: (S.name || '').trim(), inviteCode: su.invite, email: S.mode === 'login' && S.loginEmail ? S.loginEmail : su.email.trim(), city: su.city, category: su.cat, ownerName: (su.owner || '').trim(), eventDate: su.eventDate }; };
     const showAuthError = (e) => {
       const m = esc(e.message || 'Something went wrong. Please try again.');
       let extra = '';
@@ -171,6 +171,7 @@
     window.sendOtp = async function (fill) {
       clearAuthErrs();
       if (S.mode === 'signup') { if (!validateSignup()) return; }
+      else if (S.otpChannel === 'email') { if (!readIdent()) return; }
       else if (!/^[6-9]\d{9}$/.test(S.phone)) { setFieldErr('ph', 'Enter a valid 10-digit Indian mobile number.'); return; }
       try {
         const r = await post('/auth/otp', authBody());
@@ -197,7 +198,7 @@
         if (r.created) welcomeNew({ name: r.user.name, business: r.vendor ? r.vendor.name : '' }); else toast('Logged in');
       } catch (e) { showAuthError(e); document.querySelectorAll('#otp input').forEach((x) => (x.value = '')); const o = document.getElementById('o0'); if (o) o.focus(); }
     };
-    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.otpSent = false; S.otpTo = ''; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
+    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.otpSent = false; S.otpTo = ''; S.ident = ''; S.loginEmail = ''; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
 
     /* profile */
     window.saveEdit = async function () {
