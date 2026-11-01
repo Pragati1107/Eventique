@@ -45,7 +45,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | Vendor (Lumière Studios) | 9123456780 | 123456 |
 | Admin (Kavya) | 9000000001 | 123456 |
 
-New numbers can sign up. In development (`OTP_PROVIDER=dev`) the OTP is printed in the server terminal and shown on screen.
+New numbers can sign up. Login needs no role: the account decides it. Admin is hidden from the public screens; open the app with `#admin` at the end of the URL to see admin sign-up (invite code) and the admin demo login. In development (`OTP_PROVIDER=dev`) the OTP is printed in the server terminal and shown on screen.
 
 ### Run the tests
 ```bash

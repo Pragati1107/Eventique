@@ -189,7 +189,7 @@
       if (v.length < 6) { authErr('Enter all 6 digits of the OTP.'); return; }
       try {
         const r = await post('/auth/verify', { ...authBody(), code: v });
-        setToken(r.token); clearInterval(resendTimer);
+        setToken(r.token); clearInterval(resendTimer); if (r.user && r.user.role) S.role = r.user.role;
         await loadAll();
         S.screen = 'dash'; S.hist = []; S.ctx = {}; S.q = ''; S.fil = 'All';
         S.page = r.created && S.role === 'vendor' ? 'vprofile' : { customer: 'events', vendor: 'vdash', admin: 'adash' }[S.role];
@@ -198,7 +198,7 @@
         if (r.created) welcomeNew({ name: r.user.name, business: r.vendor ? r.vendor.name : '' }); else toast('Logged in');
       } catch (e) { showAuthError(e); document.querySelectorAll('#otp input').forEach((x) => (x.value = '')); const o = document.getElementById('o0'); if (o) o.focus(); }
     };
-    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.otpSent = false; S.otpTo = ''; S.ident = ''; S.loginEmail = ''; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
+    window.logout = function () { setToken(null); if (socket) socket.disconnect(); S.live = false; S.screen = 'auth'; S.mode = 'login'; S.role = 'customer'; S.otpSent = false; S.otpTo = ''; S.ident = ''; S.loginEmail = ''; S.phone = ''; S.name = ''; S.su = null; S.user = null; S.page = ''; S.hist = []; closeSheet(); render(); };
 
     /* profile */
     window.saveEdit = async function () {

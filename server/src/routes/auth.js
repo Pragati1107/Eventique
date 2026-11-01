@@ -14,14 +14,20 @@ const isDemo = (phone) => config.otp.demoPhones.includes(phone);
 const viaEmail = () => config.otp.provider === 'email';
 const viaVerify = (phone) => config.otp.provider === 'twilio_verify' && !isDemo(phone);
 
-/** Login may use the email instead of the mobile number: find the account and fill in its phone. */
+/** Login needs no role: find the account by mobile number or email and use its own role. */
 async function resolveLogin(body) {
-  if (body.mode === 'signup' || isPhone(body.phone)) return;
-  const email = str(body.email, 120).toLowerCase();
-  if (!isEmail(email)) throw new HttpError(400, 'Enter your email or 10-digit mobile number.');
-  const u = await User.findOne({ email });
-  if (!u) throw new HttpError(404, 'No account with this email yet. Please sign up first.');
-  body.phone = u.phone;
+  if (body.mode === 'signup') return;
+  let u = null;
+  if (isPhone(body.phone)) u = await User.findOne({ phone: body.phone });
+  else {
+    const email = str(body.email, 120).toLowerCase();
+    if (!isEmail(email)) throw new HttpError(400, 'Enter your email or 10-digit mobile number.');
+    u = await User.findOne({ email });
+    if (!u) throw new HttpError(404, 'No account with this email yet. Please sign up first.');
+    body.phone = u.phone;
+  }
+  if (u) body.role = u.role;
+  else if (!ROLES.includes(body.role)) body.role = 'customer';
 }
 
 function checkIntent(body) {

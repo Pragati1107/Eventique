@@ -2449,18 +2449,18 @@ function authBase(){
   const btn=sent?(signup?'Verify & create account':'Verify & log in'):(signup?'Continue':'Send OTP');
   const switcher=signup?`<div class="su-switch">Already have an account? <button class="linkbtn" onclick="setMode('login')">Log in</button></div>`
     :`<div class="su-switch">New to Eventique? <button class="linkbtn" onclick="setMode('signup')">Create an account</button></div>`;
-  const adminLink=signup&&!sent&&!su.adminOpen?`<button class="linkbtn small" onclick="S.su.adminOpen=true;render()">Joining as an admin? Use an invite code</button>`:'';
+  const adminLink=signup&&!sent&&!su.adminOpen&&isAdminUrl()?`<button class="linkbtn small" onclick="S.su.adminOpen=true;render()">Joining as an admin? Use an invite code</button>`:'';
   const demo=!signup?`<div class="demo">
      <div class="row between"><b style="font-size:14px">Demo credentials</b><span class="muted" style="font-size:12px">OTP for all: <code>${DEMO_OTP}</code></span></div>
-     ${ROLES.map(r=>`<div class="crow"><span class="dot" style="background:${r[4]}"></span><span><b>${r[1]}</b> · <code>+91 ${DEMO[r[0]].phone}</code></span><button class="btn sm soft" onclick="useDemo('${r[0]}')"><span>Use</span></button></div>`).join('')}
+     ${ROLES.filter(r=>r[0]!=='admin'||isAdminUrl()).map(r=>`<div class="crow"><span class="dot" style="background:${r[4]}"></span><span><b>${r[1]}</b> · <code>+91 ${DEMO[r[0]].phone}</code></span><button class="btn sm soft" onclick="useDemo('${r[0]}')"><span>Use</span></button></div>`).join('')}
      <div class="muted" style="font-size:12px">Tap "Use" to fill in the number and OTP automatically.</div></div>`
-    :(S.role==='admin'?`<div class="muted" style="font-size:12px">Demo admin invite code: <code>${ADMIN_CODE}</code></div>`:'');
+    :(S.role==='admin'&&isAdminUrl()?`<div class="muted" style="font-size:12px">Demo admin invite code: <code>${ADMIN_CODE}</code></div>`:'');
   return `<div class="screen"><div class="topbar"><button class="iconbtn" onclick="goScreen('welcome')" aria-label="Back">${ic('back')}</button><span class="row" style="gap:6px"><img src="${LOGO_E}" alt="" style="width:30px;height:30px;border-radius:50%;flex:none"><span class="brandmark">Eventique</span></span>${themeBtn()}</div>
   <div class="scroll" style="padding-bottom:40px"><div class="auth" style="padding:0">
    <div><h2 style="font-size:28px">${signup?'Create your account':'Welcome back'}</h2><div class="muted">${signup?(S.otpChannel==='email'?'Join Eventique in under a minute. Just your details and an OTP on email.':'Join Eventique in under a minute. Just your details and a mobile OTP.'):(S.otpChannel==='email'?'Log in with your email or mobile number. We will email you a 6-digit OTP.':'Log in with your mobile number. We will send a 6-digit OTP.')}</div></div>
    <div class="seg"><button class="${!signup?'on':''}" onclick="setMode('login')">Log in</button><button class="${signup?'on':''}" onclick="setMode('signup')">Create account</button></div>
    ${signup?`<div class="su-steps"><span class="on"><i>1</i>Your details</span><b></b><span class="${sent?'on':''}"><i>2</i>${S.otpChannel==='email'?'Verify OTP':'Verify mobile'}</span></div>`:''}
-   ${sent&&signup?'':`<div class="field"><label>${signup?'I am joining as':'Continue as'}</label><div class="roles" style="grid-template-columns:repeat(${roles.length},1fr)">${roles.map(r=>`<button class="role ${S.role===r[0]?'on':''}" data-r="${r[0]}" onclick="setRole('${r[0]}')" ${sent?'disabled':''}><span class="sw">${ic(r[3],sm)}</span>${r[1]}<small>${signup?({customer:'Plan my event',vendor:'List my services',admin:'Manage the app'})[r[0]]:r[2]}</small></button>`).join('')}</div>${adminLink}</div>`}
+   ${!signup||sent?'':`<div class="field"><label>I am joining as</label><div class="roles" style="grid-template-columns:repeat(${roles.length},1fr)">${roles.map(r=>`<button class="role ${S.role===r[0]?'on':''}" data-r="${r[0]}" onclick="setRole('${r[0]}')" ${sent?'disabled':''}><span class="sw">${ic(r[3],sm)}</span>${r[1]}<small>${signup?({customer:'Plan my event',vendor:'List my services',admin:'Manage the app'})[r[0]]:r[2]}</small></button>`).join('')}</div>${adminLink}</div>`}
    ${summary}${details}${phoneField}${terms}${otp}
    <div class="err" id="err"></div>
    <button class="btn block mirror" onclick="${sent?'verifyOtp()':'sendOtp()'}"><span>${btn}</span></button>
@@ -2507,7 +2507,7 @@ function sendOtp(fill){
     if(!/^[6-9]\d{9}$/.test(S.phone)){setFieldErr('ph','Enter a valid 10-digit Indian mobile number.');return}
     const a=findAccount(S.phone);
     if(!a){authErr(`No account found for +91 ${S.phone}. <button class="linkbtn" onclick="goSignup()">Create an account</button>`);return}
-    if(a.role!==S.role){authErr(`This number is registered as a ${roleWord(a.role).toLowerCase()}. <button class="linkbtn" onclick="setRole('${a.role}')">Log in as ${roleWord(a.role)}</button>`);return}
+    S.role=a.role;
   }
   const isDemo=Object.values(DEMO).some(d=>d.phone===S.phone);
   S.otp=isDemo?DEMO_OTP:String(Math.floor(100000+Math.random()*900000));S.otpSent=true;render();
@@ -2548,7 +2548,7 @@ function welcomeNew(acc){
     <div class="su-next">${steps.map((s,i)=>`<div><i>${i+1}</i><span><b>${s[0]}</b><small>${s[1]}</small></span></div>`).join('')}</div>
     <button class="btn block" onclick="closeSheet()"><span>${S.role==='vendor'?'Complete my profile':'Let’s start'}</span></button></div>`);
 }
-function logout(){S.screen="auth";S.mode="login";S.otpSent=false;S.phone="";S.name="";S.su=null;S.user=null;S.page="";S.hist=[];closeSheet();render()}
+function logout(){S.screen="auth";S.mode="login";S.role="customer";S.otpSent=false;S.phone="";S.name="";S.su=null;S.user=null;S.page="";S.hist=[];closeSheet();render()}
 
 /* Login field accepts an email or a mobile number when OTPs go by email. */
 function readIdent(){
@@ -2562,6 +2562,9 @@ function readIdent(){
   if(!/^[6-9]\d{9}$/.test(d)){setFieldErr('ph','Enter your email or 10-digit mobile number.');return false}
   return true}
 function useDemo(r){S.role=r;S.mode="login";S.ident='';S.loginEmail='';S.phone=DEMO[r].phone;S.otpSent=false;render();sendOtp(true)}
+
+/* Admin is the platform owner: hidden from the public screens. Open the app with #admin to see admin sign-up and the admin demo login. */
+function isAdminUrl(){return /admin/i.test(location.hash)}
 
 /* ---------- Current location: detected when the app opens (customer dashboard) ---------- */
 const CITY_LL={Lucknow:[26.8467,80.9462],Kanpur:[26.4499,80.3319],Prayagraj:[25.4358,81.8463],Varanasi:[25.3176,82.9739],Fatehpur:[25.9304,80.8139],Agra:[27.1767,78.0081],Delhi:[28.6139,77.209],Jaipur:[26.9124,75.7873]};

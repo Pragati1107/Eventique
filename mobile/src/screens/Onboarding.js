@@ -111,7 +111,7 @@ export function LoginScreen() {
     catch (e) { setErr(e.message); setCode(''); } finally { setBusy(false); }
   }
   const useDemo = (r) => { setRole(r); setMode('login'); setPhone(DEMO[r]); setIdent(DEMO[r]); setLoginEmail(''); setSent(false); setTimeout(() => sendOtp(DEMO[r], r, true, 'login'), 0); };
-  const roles = signup ? ROLES.filter(([k]) => k !== 'admin' || adminOpen) : ROLES;
+  const roles = ROLES.filter(([k]) => k !== 'admin');
   const errAction = /no account/i.test(err) ? ['Create an account', () => switchMode('signup')] : /already exists/i.test(err) ? ['Log in instead', () => switchMode('login')]
     : (/registered as a (customer|vendor|admin)/i.exec(err) || [])[1] ? [`Log in as ${/registered as a (\w+)/i.exec(err)[1]}`, () => switchMode('login', /registered as a (\w+)/i.exec(err)[1].toLowerCase())] : null;
   const Chips = ({ list, value, onPick }) => (
@@ -131,9 +131,8 @@ export function LoginScreen() {
           <Row style={{ backgroundColor: t.glass, borderRadius: 14, padding: 4 }}>
             {['login', 'signup'].map((m) => <Pressable key={m} onPress={() => switchMode(m)} style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: mode === m ? t.ac : 'transparent', alignItems: 'center' }}><Text style={{ color: mode === m ? t.onAc : t.muted, fontWeight: '700' }}>{m === 'login' ? 'Log in' : 'Create account'}</Text></Pressable>)}
           </Row>
-          {!(signup && sent) ? <Row>{roles.map(([k, l, s]) => <Pressable key={k} onPress={() => { setRole(k); setSent(false); setErr(''); }} style={{ flex: 1, padding: 12, borderRadius: 16, borderWidth: 1.5, borderColor: role === k ? t.ac : t.line, backgroundColor: role === k ? t.acSoft : t.glass, alignItems: 'center' }}><Text style={{ fontWeight: '700', color: role === k ? t.ac : t.fg }}>{l}</Text><Muted style={{ fontSize: 11.5 }}>{signup ? { customer: 'Plan my event', vendor: 'List my services', admin: 'Manage the app' }[k] : s}</Muted></Pressable>)}</Row> : null}
-          {signup && !sent && !adminOpen ? <Pressable onPress={() => setAdminOpen(true)}><Text style={{ color: t.ac, fontWeight: '600', textDecorationLine: 'underline' }}>Joining as an admin? Use an invite code</Text></Pressable> : null}
-          {signup && !sent ? (
+          {signup && !sent ? <Row>{roles.map(([k, l, s]) => <Pressable key={k} onPress={() => { setRole(k); setSent(false); setErr(''); }} style={{ flex: 1, padding: 12, borderRadius: 16, borderWidth: 1.5, borderColor: role === k ? t.ac : t.line, backgroundColor: role === k ? t.acSoft : t.glass, alignItems: 'center' }}><Text style={{ fontWeight: '700', color: role === k ? t.ac : t.fg }}>{l}</Text><Muted style={{ fontSize: 11.5 }}>{signup ? { customer: 'Plan my event', vendor: 'List my services', admin: 'Manage the app' }[k] : s}</Muted></Pressable>)}</Row> : null}
+                    {signup && !sent ? (
             <View style={{ gap: 12 }}>
               <Field label={role === 'vendor' ? 'Business name' : 'Full name'} value={name} onChangeText={setName} placeholder={role === 'vendor' ? 'e.g. Lumière Studios' : 'e.g. Priya Sharma'} />
               {role === 'vendor' ? <Field label="Your name" value={owner} onChangeText={setOwner} placeholder="e.g. Rahul Verma" /> : null}
@@ -162,7 +161,7 @@ export function LoginScreen() {
           {!signup ? (
             <Card style={{ borderStyle: 'dashed', borderColor: t.gold }}>
               <Row between><Text style={{ fontWeight: '700', color: t.fg }}>Demo accounts</Text><Muted>OTP: 123456</Muted></Row>
-              {ROLES.map(([k, l]) => <Row key={k} between><Text style={{ color: t.fg }}><Text style={{ fontWeight: '700' }}>{l}</Text> · +91 {DEMO[k]}</Text><Button small kind="soft" title="Use" onPress={() => useDemo(k)} /></Row>)}
+              {ROLES.filter(([k]) => k !== 'admin').map(([k, l]) => <Row key={k} between><Text style={{ color: t.fg }}><Text style={{ fontWeight: '700' }}>{l}</Text> · +91 {DEMO[k]}</Text><Button small kind="soft" title="Use" onPress={() => useDemo(k)} /></Row>)}
             </Card>
           ) : null}
         </ScrollView>
