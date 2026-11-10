@@ -40,6 +40,8 @@ services:
         value: "false"
       - key: RESET_DATA
         sync: false        # set to a new word once to wipe all users and records (keeps categories)
+      - key: SAMPLE_VENDORS
+        value: prayagraj-1   # made-up demo vendors marked "(Sample)"; change to "off" to remove them
       - key: STORAGE
         sync: false        # cloudinary in production, so photos survive redeploys
       - key: CLOUDINARY_URL

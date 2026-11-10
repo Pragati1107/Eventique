@@ -82,6 +82,7 @@ if (require.main === module) {
         console.log(`[eventique] RESET_DATA "${resetId}": removed all users and records; categories and settings kept`);
       }
     }
+    await require('./sample').syncSamples(mongoose);
     // First deploy convenience: fill an empty database with demo data when AUTO_SEED=true.
     if (process.env.AUTO_SEED === 'true' && !(await require('./models').User.exists({}))) {
       console.log('[eventique] empty database, seeding demo data…');

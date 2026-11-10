@@ -77,6 +77,7 @@ const VendorSchema = new Schema({
   replyMinutes: { type: Number, default: 60 },
   views: { type: Number, default: 0 },
   bank: { holder: String, last4: String, ifsc: String },
+  sample: { type: Boolean, default: false },
 }, opts);
 VendorSchema.index({ name: 'text', category: 'text', city: 'text' });
 
