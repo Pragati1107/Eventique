@@ -340,7 +340,7 @@
   /* ---------------- boot ---------------- */
   fetch(API + '/health').then((r) => (r.ok ? r.json() : null)).then(async (h) => {
     if (!h) return;
-    S.otpChannel = h.otpChannel || ''; install(); if (S.screen === 'auth') render();
+    S.otpChannel = h.otpChannel || ''; S.demoOn = !!h.demo; S.server = true; install(); if (S.screen === 'auth') render();
     const badge = document.createElement('div'); badge.className = 'livebadge'; badge.textContent = h.paymentsMode === 'mock' ? 'Live server · test payments' : 'Live server'; document.body.appendChild(badge);
     if (TOKEN) { try { await loadAll(); if ((S.role === 'admin') !== (window.EVQ_APP === 'admin')) throw new Error('wrong app'); stopTour(); S.screen = 'dash'; S.page = { customer: 'events', vendor: 'vdash', admin: 'adash' }[S.role]; render(); } catch (e) { setToken(null); S.screen = window.EVQ_APP === 'admin' ? 'auth' : S.screen; render(); } }
   }).catch(() => { /* not served by the API: stay in demo mode */ });

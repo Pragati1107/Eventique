@@ -47,6 +47,9 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 New numbers can sign up. Login needs no role: the account decides it. There are two apps: **Eventique** at `/` for customers and vendors, and **Eventique Admin** at `/admin` for admins (sign-up there needs the admin invite code). Each can be installed separately and keeps its own login; the server refuses admins in the main app and everyone else in the admin app. In development (`OTP_PROVIDER=dev`) the OTP is printed in the server terminal and shown on screen.
 
+### Going live with real users
+In Render set: `DEMO_PHONES` empty (turns off the demo logins and hides the demo box), a secret `ADMIN_INVITE_CODE`, `OTP_FALLBACK_SCREEN=false`, `AUTO_SEED=false`, `STORAGE=cloudinary` with `CLOUDINARY_URL`, and `RESET_DATA=<new word>` once to delete all demo users, vendors and bookings (categories and settings are kept). Then create your admin account in the Admin app with the invite code.
+
 ### Run the tests
 ```bash
 cd server

@@ -24,7 +24,7 @@ if (!config.isProd) app.use(morgan('dev'));
 app.post('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }), (req, res, next) => payments.webhook(req, res).catch(next));
 app.use(express.json({ limit: '1mb' }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, db: mongoose.connection.readyState === 1, paymentsMode: config.paymentsMock ? 'mock' : 'razorpay', otpProvider: config.otp.provider, otpChannel: config.otp.provider === 'email' ? 'email' : config.otp.provider === 'dev' ? 'screen' : 'sms', translate: translate.enabled }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, db: mongoose.connection.readyState === 1, paymentsMode: config.paymentsMock ? 'mock' : 'razorpay', otpProvider: config.otp.provider, otpChannel: config.otp.provider === 'email' ? 'email' : config.otp.provider === 'dev' ? 'screen' : 'sms', translate: translate.enabled, demo: config.otp.demoPhones.length > 0 }));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/me', require('./routes/me'));
 app.use('/api', require('./routes/vendors'));
@@ -67,6 +67,20 @@ setIO(io);
 
 if (require.main === module) {
   connect().then(async () => {
+    // One-time clean start: RESET_DATA=<any new id> deletes all users, vendors, bookings and other records once,
+    // keeping categories, event types and platform settings. Change the id to run it again.
+    const resetId = (process.env.RESET_DATA || '').trim();
+    if (resetId) {
+      const meta = mongoose.connection.db.collection('meta');
+      const done = await meta.findOne({ _id: 'reset' });
+      if (!done || done.id !== resetId) {
+        const M = require('./models');
+        const keep = ['Category', 'EventType', 'Setting'];
+        await Promise.all(Object.entries(M).filter(([k]) => !keep.includes(k)).map(([, m]) => m.deleteMany({})));
+        await meta.updateOne({ _id: 'reset' }, { $set: { id: resetId, at: new Date() } }, { upsert: true });
+        console.log(`[eventique] RESET_DATA "${resetId}": removed all users and records; categories and settings kept`);
+      }
+    }
     // First deploy convenience: fill an empty database with demo data when AUTO_SEED=true.
     if (process.env.AUTO_SEED === 'true' && !(await require('./models').User.exists({}))) {
       console.log('[eventique] empty database, seeding demo data…');

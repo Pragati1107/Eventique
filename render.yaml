@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: AUTO_SEED
-        value: "true"
+        value: "false"      # "true" fills an EMPTY database with demo vendors and logins (for demos only)
       - key: OTP_PROVIDER
         value: auto        # email when EMAIL_WEBHOOK_* are set, else Twilio when TWILIO_* are set, else the OTP shows on screen
       - key: EMAIL_WEBHOOK_URL
@@ -31,13 +31,19 @@ services:
       - key: TWILIO_VERIFY_SID
         sync: false
       - key: DEMO_PHONES
-        value: 9876543210,9123456780,9000000001
+        sync: false        # leave unset in production; demo numbers log in with DEMO_OTP
       - key: DEMO_OTP
         value: "123456"
       - key: ADMIN_INVITE_CODE
-        value: EVQ-ADMIN
+        sync: false        # secret code needed to create an admin account in the Admin app
+      - key: OTP_FALLBACK_SCREEN
+        value: "false"
+      - key: RESET_DATA
+        sync: false        # set to a new word once to wipe all users and records (keeps categories)
       - key: STORAGE
-        value: local
+        sync: false        # cloudinary in production, so photos survive redeploys
+      - key: CLOUDINARY_URL
+        sync: false
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
