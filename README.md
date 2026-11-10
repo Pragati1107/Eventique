@@ -50,6 +50,9 @@ New numbers can sign up. Login needs no role: the account decides it. There are 
 ### Going live with real users
 In Render set: `DEMO_PHONES` empty (turns off the demo logins and hides the demo box), a secret `ADMIN_INVITE_CODE`, `OTP_FALLBACK_SCREEN=false`, `AUTO_SEED=false`, `STORAGE=cloudinary` with `CLOUDINARY_URL`, and `RESET_DATA=<new word>` once to delete all demo users, vendors and bookings (categories and settings are kept). Then create your admin account in the Admin app with the invite code.
 
+### Changing email
+Email is used to log in, so a new email is verified with an OTP sent to it (Profile > Edit, or POST /me/email/otp then /me/email/verify).
+
 ### Run the tests
 ```bash
 cd server

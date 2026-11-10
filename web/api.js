@@ -210,14 +210,23 @@
       const phone = g('ef_phone');
       try {
         if (S.user.photo && S.user.photo.startsWith('data:')) { const fd = new FormData(); fd.append('file', await dataUrlToBlob(S.user.photo), 'photo.jpg'); const r = await call('POST', '/me/photo', fd, true); body.photo = r.user.photo; }
+        const newEmail = body.email.toLowerCase(); const emailChanged = newEmail !== String(S.user.email || '').toLowerCase();
+        if (emailChanged) delete body.email;
         const r = await patch('/me', body); applyUser(r.user);
-        if (phone !== r.user.phone) {
-          const o = await post('/me/phone/otp', { phone });
-          openSheet(`<div class="stack"><h3 style="font-size:20px">Verify new number</h3><div class="muted">We sent a 6-digit OTP to ${o.to || '+91 ' + phone}.${o.devCode ? ` (development code: <b>${o.devCode}</b>)` : ''}</div>
+        // One OTP sheet; resolves when verified, rejects if closed.
+        const otpStep = (title, to, devCode, verify) => new Promise((resolve) => {
+          openSheet(`<div class="stack"><h3 style="font-size:20px">${title}</h3><div class="muted">We sent a 6-digit OTP to <b>${esc(to)}</b>.${devCode ? ` (development code: <b>${devCode}</b>)` : ''}</div>
             <div class="input"><input id="pot" inputmode="numeric" maxlength="6" placeholder="Enter OTP" style="letter-spacing:.3em;font-size:18px;text-align:center"></div><div class="err" id="poterr"></div>
             <button class="btn block" id="potbtn"><span>Verify & save</span></button></div>`);
-          document.getElementById('potbtn').onclick = async () => { try { const rr = await post('/me/phone/verify', { phone, code: document.getElementById('pot').value.trim() }); applyUser(rr.user); closeSheet(); toast('Profile updated'); back(); } catch (e) { document.getElementById('poterr').textContent = e.message; } };
-          return;
+          document.getElementById('potbtn').onclick = async () => { try { const rr = await verify(document.getElementById('pot').value.trim()); applyUser(rr.user); closeSheet(); resolve(true); } catch (e) { document.getElementById('poterr').textContent = e.message; } };
+        });
+        if (emailChanged && newEmail) {
+          const o = await post('/me/email/otp', { email: newEmail });
+          await otpStep('Verify new email', o.to || newEmail, o.devCode, (code) => post('/me/email/verify', { email: newEmail, code }));
+        }
+        if (phone !== S.user.phone) {
+          const o = await post('/me/phone/otp', { phone });
+          await otpStep('Verify new number', o.to || '+91 ' + phone, o.devCode, (code) => post('/me/phone/verify', { phone, code }));
         }
         toast('Profile updated'); back();
       } catch (e) { if (errEl) errEl.textContent = e.message; else fail(e); }

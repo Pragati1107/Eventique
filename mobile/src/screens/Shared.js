@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../lib/theme';
 import { useApp } from '../lib/store';
 import { useLoad } from '../lib/useLoad';
-import { get, post, patch, upload, rupee, ago } from '../lib/api';
+import { API_URL, get, post, patch, upload, rupee, ago } from '../lib/api';
 import { Body, Button, Card, Empty, ErrorBox, Field, H1, Loading, Muted, Row, Screen } from '../components/ui';
 
 /* ---------------- Payment: Razorpay Checkout in a WebView, or the server's test gateway ---------------- */
@@ -131,7 +131,7 @@ export function NotificationsScreen() {
 export function ProfileScreen({ navigation }) {
   const { user, setUser, logout, toast } = useApp(); const t = useTheme(user.role);
   const [f, setF] = useState({ name: user.name, email: user.email || '', city: user.city || '', address: user.address || '', eventDate: user.eventDate || '', partner: user.partner || '' });
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false); const [pending, setPending] = useState(null); const [code, setCode] = useState('');
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   async function pickPhoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -140,7 +140,20 @@ export function ProfileScreen({ navigation }) {
     if (r.canceled) return;
     try { const res = await upload('/me/photo', r.assets[0].uri); setUser(res.user); toast('Photo updated'); } catch (e) { toast(e.message); }
   }
-  async function save() { setBusy(true); try { const r = await patch('/me', f); setUser(r.user); toast('Profile updated'); } catch (e) { toast(e.message); } finally { setBusy(false); } }
+  async function save() {
+    setBusy(true);
+    try {
+      const email = f.email.trim().toLowerCase(); const changed = email !== String(user.email || '').toLowerCase();
+      const body = { ...f }; if (changed) delete body.email;
+      const r = await patch('/me', body); setUser(r.user);
+      if (changed && email) { const o = await post('/me/email/otp', { email }); setPending({ email, to: o.to || email }); setCode(''); toast(`OTP sent to ${o.to || email}`); }
+      else toast('Profile updated');
+    } catch (e) { toast(e.message); } finally { setBusy(false); }
+  }
+  async function verifyEmail() {
+    setBusy(true);
+    try { const r = await post('/me/email/verify', { email: pending.email, code }); setUser(r.user); setPending(null); toast('Email updated'); } catch (e) { toast(e.message); } finally { setBusy(false); }
+  }
   return (
     <Screen>
       <Row>
@@ -153,11 +166,13 @@ export function ProfileScreen({ navigation }) {
         <Field label="City" value={f.city} onChangeText={set('city')} />
         <Field label="Address" value={f.address} onChangeText={set('address')} multiline />
         {user.role === 'customer' ? <><Field label="Event date (YYYY-MM-DD)" value={f.eventDate} onChangeText={set('eventDate')} /><Field label="Partner name" value={f.partner} onChangeText={set('partner')} /></> : null}
-        <Button title="Save changes" loading={busy} onPress={save} />
+        {pending ? <View style={{ gap: 8 }}><Muted>Enter the OTP sent to {pending.to} to change your email.</Muted><Field label="OTP" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" maxLength={6} /><Button title="Verify email" loading={busy} onPress={verifyEmail} /></View>
+          : <Button title="Save changes" loading={busy} onPress={save} />}
       </Card>
       {user.role === 'customer' ? <Button kind="soft" title="♥ Saved vendors" onPress={() => navigation.navigate('Saved')} /> : null}
       <Button kind="soft" title="Notifications" onPress={() => navigation.navigate('Notifications')} />
       <Button kind="ghost" title="Log out" onPress={logout} />
+      <Row style={{ justifyContent: 'center', flexWrap: 'wrap', gap: 14 }}>{[['Terms', 'terms'], ['Privacy', 'privacy'], ['Refunds', 'refund-policy'], ['Contact', 'contact']].map(([l, p]) => <Pressable key={p} onPress={() => Linking.openURL(`${API_URL}/${p}`)}><Muted style={{ textDecorationLine: 'underline' }}>{l}</Muted></Pressable>)}</Row>
     </Screen>
   );
 }

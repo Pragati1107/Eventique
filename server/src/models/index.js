@@ -25,7 +25,7 @@ const UserSchema = new Schema({
 const OtpSchema = new Schema({
   phone: { type: String, required: true, index: true },
   codeHash: { type: String, required: true },
-  purpose: { type: String, enum: ['login', 'change-phone'], default: 'login' },
+  purpose: { type: String, enum: ['login', 'change-phone', 'change-email'], default: 'login' },
   attempts: { type: Number, default: 0 },
   expiresAt: { type: Date, required: true },
   usedAt: Date,

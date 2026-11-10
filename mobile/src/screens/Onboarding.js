@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { useTheme, WALL } from '../lib/theme';
 import { useApp } from '../lib/store';
-import { get, post } from '../lib/api';
+import { API_URL, get, post } from '../lib/api';
 import { Body, Button, Card, Field, Muted, Row } from '../components/ui';
 
 const EVORA = require('../../assets/evora.png');
@@ -71,12 +71,12 @@ export function LoginScreen() {
   const [phone, setPhone] = useState(''); const [ident, setIdent] = useState(''); const [loginEmail, setLoginEmail] = useState(''); const [name, setName] = useState(''); const [invite, setInvite] = useState('');
   const [owner, setOwner] = useState(''); const [email, setEmail] = useState(''); const [city, setCity] = useState('Lucknow'); const [cat, setCat] = useState('Photography');
   const [agree, setAgree] = useState(false); const [adminOpen, setAdminOpen] = useState(false);
-  const [channel, setChannel] = useState(''); const [sentTo, setSentTo] = useState('');
+  const [channel, setChannel] = useState(''); const [demoOn, setDemoOn] = useState(false); const [sentTo, setSentTo] = useState('');
   const [sent, setSent] = useState(false); const [code, setCode] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [wait, setWait] = useState(0);
   const t = useTheme(role); const timer = useRef(null);
   const signup = mode === 'signup';
   useEffect(() => () => clearInterval(timer.current), []);
-  useEffect(() => { get('/health').then((h) => setChannel(h.otpChannel || '')).catch(() => {}); }, []);
+  useEffect(() => { get('/health').then((h) => { setChannel(h.otpChannel || ''); setDemoOn(!!h.demo); }).catch(() => {}); }, []);
   const emailOtp = channel === 'email';
   const startWait = () => { setWait(30); clearInterval(timer.current); timer.current = setInterval(() => setWait((w) => { if (w <= 1) { clearInterval(timer.current); return 0; } return w - 1; }), 1000); };
   const switchMode = (m, r) => { setMode(m); if (r) setRole(r); setSent(false); setErr(''); if (m === 'signup' && role === 'admin' && !adminOpen) setRole('customer'); };
@@ -149,6 +149,7 @@ export function LoginScreen() {
             <Field label="Mobile number (+91)" value={phone} onChangeText={(v) => setPhone(v.replace(/\D/g, '').slice(0, 10))} keyboardType="number-pad" placeholder="98765 43210" editable={!sent} />
           )}
           {signup && !sent ? <Pressable onPress={() => setAgree(!agree)} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}><View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: agree ? t.ac : t.line, backgroundColor: agree ? t.ac : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{agree ? <Text style={{ color: t.onAc, fontWeight: '800' }}>✓</Text> : null}</View><Text style={{ flex: 1, color: t.fg }}>I agree to the Terms of Service and Privacy Policy.</Text></Pressable> : null}
+          <Row style={{ justifyContent: 'center', flexWrap: 'wrap', gap: 14 }}>{[['Terms', 'terms'], ['Privacy', 'privacy'], ['Refunds', 'refund-policy'], ['Contact', 'contact']].map(([l, p]) => <Pressable key={p} onPress={() => Linking.openURL(`${API_URL}/${p}`)}><Muted style={{ textDecorationLine: 'underline' }}>{l}</Muted></Pressable>)}</Row>
           {sent ? (
             <View style={{ gap: 8 }}>
               <Field label={sentTo ? `Enter the OTP sent to ${sentTo}` : (phone ? `Enter the OTP sent to +91 ${phone}` : `Enter the OTP sent to ${loginEmail}`)} value={code} onChangeText={(v) => { const c = v.replace(/\D/g, '').slice(0, 6); setCode(c); if (c.length === 6) verify(c); }} keyboardType="number-pad" maxLength={6} style={{ letterSpacing: 8, fontSize: 20, textAlign: 'center' }} />
@@ -158,7 +159,7 @@ export function LoginScreen() {
           {err ? <View style={{ gap: 6 }}><Text style={{ color: t.bad }}>{err}</Text>{errAction ? <Pressable onPress={errAction[1]}><Text style={{ color: t.ac, fontWeight: '700', textDecorationLine: 'underline' }}>{errAction[0]}</Text></Pressable> : null}</View> : null}
           <Button title={sent ? (signup ? 'Verify & create account' : 'Verify & log in') : (signup ? 'Continue' : 'Send OTP')} loading={busy} onPress={() => (sent ? verify() : sendOtp())} />
           <Pressable onPress={() => switchMode(signup ? 'login' : 'signup')} style={{ alignItems: 'center' }}><Text style={{ color: t.muted }}>{signup ? 'Already have an account? ' : 'New to Eventique? '}<Text style={{ color: t.ac, fontWeight: '700' }}>{signup ? 'Log in' : 'Create an account'}</Text></Text></Pressable>
-          {!signup ? (
+          {!signup && demoOn ? (
             <Card style={{ borderStyle: 'dashed', borderColor: t.gold }}>
               <Row between><Text style={{ fontWeight: '700', color: t.fg }}>Demo accounts</Text><Muted>OTP: 123456</Muted></Row>
               {ROLES.filter(([k]) => k !== 'admin').map(([k, l]) => <Row key={k} between><Text style={{ color: t.fg }}><Text style={{ fontWeight: '700' }}>{l}</Text> · +91 {DEMO[k]}</Text><Button small kind="soft" title="Use" onPress={() => useDemo(k)} /></Row>)}

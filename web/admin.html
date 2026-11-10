@@ -2,7 +2,7 @@
 <meta name="theme-color" content="#2B2233"><link rel="icon" href="/img/logo-mark.webp"><link rel="manifest" href="/manifest-admin.webmanifest"><link rel="apple-touch-icon" href="/apple-touch-icon-admin.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Eventique Admin">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}
 .livebadge{position:fixed;left:50%;bottom:6px;transform:translateX(-50%);z-index:9999;font:600 11px system-ui,sans-serif;background:#0D6B4E;color:#fff;padding:3px 10px;border-radius:99px;opacity:.85;pointer-events:none}</style>
-<title>Eventique Admin</title><script>window.EVQ_APP="admin"</script><style>.legal-links{font-size:12.5px;text-align:center;color:var(--muted,#6f6068);margin-top:6px}.legal-links a{color:inherit;text-decoration:underline}.tour .legal-links{position:fixed;left:0;right:0;bottom:8px;z-index:5}</style></head><body>
+<title>Eventique Admin</title><script>window.EVQ_APP="admin"</script><style>.legal-links{font-size:12.5px;text-align:center;color:var(--muted,#6f6068);margin-top:6px}.legal-links a{color:inherit;text-decoration:underline}.tour .legal-links{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:5;background:rgba(255,255,255,.82);padding:3px 12px;border-radius:99px;white-space:nowrap}</style></head><body>
 <title>Eventique</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Great+Vibes&family=Pinyon+Script&family=Parisienne&family=Alex+Brush&family=Allura&family=Tangerine:wght@700&family=Dancing+Script:wght@600&family=Pacifico&family=Yatra+One&family=Rozha+One&family=Cinzel:wght@500;600&family=Playfair+Display:ital@1&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Lora&family=Poppins:wght@400;600&family=Tiro+Devanagari+Hindi&display=swap">
@@ -1306,7 +1306,7 @@ function dashboard(){
 }
 function moreMenu(){const items=Object.entries(PAGES[S.role]).filter(([,v])=>v[2]);
   openSheet(`<div class="stack"><h3 style="font-size:20px">${S.role==='admin'?'Admin':'Vendor'} menu</h3><div class="menu">${items.map(([k,v])=>`<button class="${S.page===k?'on':''}" onclick="tab('${k}')"><span class="ic">${ic(v[2])}</span>${v[0]}</button>`).join('')}</div>
-  <button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button></div>`)}
+  <button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button><div class="legal-links" data-noi18n><a href="/terms" target="_blank" rel="noopener">Terms</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/refund-policy" target="_blank" rel="noopener">Refunds</a> · <a href="/contact" target="_blank" rel="noopener">Contact</a></div></div>`)}
 
 const vById=id=>VENDORS.find(v=>v.id===id);
 const statusPill=s=>`<span class="pill ${['Confirmed','Approved','Active','Paid','Received','Resolved','Completed'].includes(s)?'ok':['Pending','Open'].includes(s)?'warn':'bad'}">${s}</span>`;
@@ -1447,7 +1447,7 @@ function cProfile(){const u=S.user;const row=(icn,l,v)=>`<div class="setrow"><di
   return profileCard()+`${pScore()<100?`<button class="banner" style="border:0;width:100%;text-align:left" onclick="nav('editprofile')">${ic('user')}<span>Profile ${pScore()}% complete. Add the remaining details.</span>${ic('next')}</button>`:''}
   <button class="card setrow tap" style="width:100%;text-align:left" onclick="nav('saved')"><div class="row">${ic('heart')}<span>Saved vendors</span></div><span class="row" style="gap:6px"><b class="num">${S.favs.length}</b>${ic('next')}</span></button>
   <div class="card stack"><b>My details</b>${row('msg','Email',u.email)}${row('pin','City',u.city)}${row('cal','Date of birth',u.dob?fmtDate(u.dob):'')}${row('home','Address',u.address)}${row('heart','Event date',u.eventDate?fmtDate(u.eventDate):'')}</div>
-  <div class="card stack">${themeRow()}<div class="setrow"><div class="row">${ic('bell')}<span>Notifications</span></div><span class="muted">In-app & email</span></div></div><button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button>`}
+  <div class="card stack">${themeRow()}<div class="setrow"><div class="row">${ic('bell')}<span>Notifications</span></div><span class="muted">In-app & email</span></div></div><button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button><div class="legal-links" data-noi18n><a href="/terms" target="_blank" rel="noopener">Terms</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/refund-policy" target="_blank" rel="noopener">Refunds</a> · <a href="/contact" target="_blank" rel="noopener">Contact</a></div>`}
 function bookingCard(b,who){const v=vById(b.vendor);
   return `<div class="card list-item">${mono(v,44)}<div class="meta">
   <div class="row between"><b>${esc(who==='vendor'?b.customer:v.name)}</b>${statusPill(b.status)}</div>
@@ -1603,7 +1603,7 @@ function vSettings(){return `<h2 class="ptitle">Settings</h2>${profileCard()}
   <div class="card stack">${themeRow()}${tgl('email','Email booking updates','inbox')}
   <div class="setrow"><div class="row">${ic('sparkle')}<span>Language</span></div><select class="chip" onchange="S.settings.lang=this.value">${["English","Hindi","Hinglish"].map(l=>`<option ${S.settings.lang===l?'selected':''}>${l}</option>`).join('')}</select></div>
   <div class="setrow"><div class="row">${ic('card')}<span>Bank account</span></div><span class="muted">HDFC ••4421</span></div></div>
-  <button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button>`}
+  <button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button><div class="legal-links" data-noi18n><a href="/terms" target="_blank" rel="noopener">Terms</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/refund-policy" target="_blank" rel="noopener">Refunds</a> · <a href="/contact" target="_blank" rel="noopener">Contact</a></div>`}
 
 /* ================= ADMIN ================= */
 function gmv(){return S.bookings.filter(b=>['Confirmed','Completed'].includes(b.status)).reduce((a,b)=>a+b.amount,0)+4815000}
@@ -1663,7 +1663,7 @@ function aSettings(){return `<h2 class="ptitle">Settings</h2>${profileCard()}
    <div class="setrow"><span>GST on bookings (%)</span><div class="input" style="width:90px"><input type="number" min="0" value="${S.settings.gst}" onchange="setSetting('gst',+this.value)"></div></div>
    ${tgl('maintenance','Maintenance mode','alert')}</div>
   <div class="card stack"><b>Preferences</b>${themeRow()}${tgl('sms','SMS alerts','bell')}${tgl('email','Daily email report','inbox')}</div>
-  <button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button>`}
+  <button class="btn block ghost" onclick="logout()">${ic('logout')}<span>Log out</span></button><div class="legal-links" data-noi18n><a href="/terms" target="_blank" rel="noopener">Terms</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/refund-policy" target="_blank" rel="noopener">Refunds</a> · <a href="/contact" target="_blank" rel="noopener">Contact</a></div>`}
 
 /* ================= CHATBOT ================= */
 const CHIPS={customer:["Suggest a photographer","Wedding budget?","My bookings","How do I cancel?"],vendor:["How do I accept requests?","When do I get paid?","Improve my profile","How do I block a date?"],admin:["Pending approvals","Today’s GMV","Open complaints","Commission rate"],none:["How do I use the demo login?","I didn’t get the OTP","How do I become a vendor?"]};
@@ -2340,7 +2340,7 @@ function tourVisual(k){
   if(k==='book')return `<div class="card tv-book"><div class="row between"><b>Lumière Studios · Premium</b><span class="pill ok">Confirmed</span></div><div class="tl">${[['Request sent','28 Nov · 450 guests'],['Vendor confirmed','within 2 hours'],['Advance paid','₹21,240 · UPI'],['Event day','28 Nov 2026']].map(([t,s],i)=>`<div class="st ${i<3?'done':''} tv-step" style="--d:${i*.4}s"><span class="b">${i<3?ic('check','style="width:13px;height:13px"'):''}</span><div><b style="font-size:14px">${t}</b><div class="muted" style="font-size:12.5px">${s}</div></div></div>`).join('')}</div></div>`;
   return `<div class="tv-roles">${[['customer','Customer','Plan and book','user','#6B2D5C'],['vendor','Vendor','Bookings and payouts','inbox','#0D6B4E'],['admin','Admin','Run the platform','shield','#A67C1A']].map(([r,t,s,i,c],k)=>`<button class="tv-role" style="--c:${c};--d:${k*.15}s" onclick="event.stopPropagation();stopTour();S.role='${r}';S.mode='login';S.screen='auth';render()"><span>${ic(i)}</span><b>${t}</b><small>${s}</small></button>`).join('')}</div>`}
 function tour(){const i=S.tour.i;
-  if(i<0)return `<div class="screen tour"><div class="tour-top"><span class="row" style="gap:8px"><img src="${LOGO_E}" alt="" style="width:30px;height:30px;border-radius:50%"><span class="brandmark">Eventique</span></span><span class="row" style="gap:8px">${langBtn()}<button class="btn sm ghost" onclick="endTour()"><span>Skip</span></button></span></div>
+  if(i<0)return `<div class="screen tour"><div class="legal-links" data-noi18n><a href="/terms" target="_blank" rel="noopener">Terms</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/refund-policy" target="_blank" rel="noopener">Refunds</a> · <a href="/contact" target="_blank" rel="noopener">Contact</a></div><div class="tour-top"><span class="row" style="gap:8px"><img src="${LOGO_E}" alt="" style="width:30px;height:30px;border-radius:50%"><span class="brandmark">Eventique</span></span><span class="row" style="gap:8px">${langBtn()}<button class="btn sm ghost" onclick="endTour()"><span>Skip</span></button></span></div>
    <div class="tour-intro"><div class="guide big"><img src="${MASCOT}" alt="Evora, the Eventique guide"><span class="g-ring"></span></div>
    <div class="eyebrow">Your personal guide</div><h1 class="tour-h">Hello! I’m Evora.</h1><p class="muted" style="max-width:36ch;margin:0 auto">A one-minute tour showing how easy event planning is with Eventique.</p>
    <div class="tour-start"><button class="btn mirror" style="padding:15px 28px" onclick="tourGo(0)">${ic('next',sm)}<span>Start the tour · 1 min</span></button>

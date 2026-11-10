@@ -17,7 +17,12 @@ router.get('/', asyncH(async (req, res) => {
 router.patch('/', asyncH(async (req, res) => {
   const b = req.body; const u = req.user;
   if (b.name !== undefined) { if (str(b.name, 80).length < 2) throw new HttpError(400, 'Name must be at least 2 characters.'); u.name = str(b.name, 80); }
-  if (b.email !== undefined) { if (b.email && !isEmail(b.email)) throw new HttpError(400, 'Enter a valid email, like name@gmail.com'); u.email = str(b.email, 120); }
+  if (b.email !== undefined && str(b.email, 120).toLowerCase() !== String(u.email || '').toLowerCase()) {
+    // Email is used to log in, so a new email must be verified first (POST /me/email/otp, then /me/email/verify).
+    if (u.email || config.otp.provider === 'email') throw new HttpError(400, 'To change your email, verify the new address with the OTP we send to it.', 'EMAIL_VERIFY');
+    if (b.email && !isEmail(b.email)) throw new HttpError(400, 'Enter a valid email, like name@gmail.com');
+    u.email = str(b.email, 120).toLowerCase();
+  }
   if (b.eventDate !== undefined) { if (b.eventDate && !isDate(b.eventDate)) throw new HttpError(400, 'Invalid event date.'); u.eventDate = b.eventDate; }
   for (const k of ['city', 'dob', 'gender', 'address', 'partner', 'photo']) if (b[k] !== undefined) u[k] = str(b[k], k === 'address' ? 300 : 500);
   if (b.budget !== undefined) u.budget = int(b.budget, { min: 0, max: 1e9, def: u.budget });
@@ -62,6 +67,31 @@ router.post('/phone/verify', asyncH(async (req, res) => {
   if (!ok) { otp.attempts += 1; await otp.save(); throw new HttpError(400, 'Incorrect OTP. Please try again.'); }
   otp.usedAt = new Date(); await otp.save();
   req.user.phone = phone; await req.user.save();
+  res.json({ user: req.user });
+}));
+
+/* Change email: the OTP goes to the NEW address, which proves the user owns it. */
+router.post('/email/otp', asyncH(async (req, res) => {
+  const email = str(req.body.email, 120).toLowerCase();
+  if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email, like name@gmail.com');
+  if (email === String(req.user.email || '').toLowerCase()) throw new HttpError(400, 'This is already your email.');
+  if (await User.exists({ email, _id: { $ne: req.user._id } })) throw new HttpError(409, 'That email is already linked to another account.');
+  const last = await Otp.findOne({ phone: req.user.phone, purpose: 'change-email' }).sort({ createdAt: -1 });
+  if (last && Date.now() - last.createdAt.getTime() < config.otp.resendSeconds * 1000) throw new HttpError(429, `Please wait ${config.otp.resendSeconds} seconds before asking for a new OTP.`);
+  const code = generateOtp();
+  if (config.otp.provider === 'email') await sendEmailOtp(email, code, req.user.name);
+  else console.log(`[otp] email change ${email} -> ${code} (dev mode)`);
+  await Otp.create({ phone: req.user.phone, purpose: 'change-email', codeHash: hashOtp(`${req.user.phone}:${email}`, code, config.jwtSecret), expiresAt: new Date(Date.now() + config.otp.ttlMinutes * 60e3) });
+  res.json({ sent: true, to: maskEmail(email), ...(config.otp.provider === 'dev' ? { devCode: code } : {}) });
+}));
+router.post('/email/verify', asyncH(async (req, res) => {
+  const email = str(req.body.email, 120).toLowerCase(); const code = String(req.body.code || '');
+  const otp = await Otp.findOne({ phone: req.user.phone, purpose: 'change-email', usedAt: null }).sort({ createdAt: -1 });
+  if (!otp || otp.expiresAt < new Date() || otp.attempts >= config.otp.maxAttempts) throw new HttpError(400, 'This OTP has expired. Request a new one.');
+  if (!safeEqual(otp.codeHash, hashOtp(`${req.user.phone}:${email}`, code, config.jwtSecret))) { otp.attempts += 1; await otp.save(); throw new HttpError(400, 'Incorrect OTP. Please try again.'); }
+  if (await User.exists({ email, _id: { $ne: req.user._id } })) throw new HttpError(409, 'That email is already linked to another account.');
+  otp.usedAt = new Date(); await otp.save();
+  req.user.email = email; await req.user.save();
   res.json({ user: req.user });
 }));
 
