@@ -17,8 +17,8 @@ async function settle(payment, paymentId) {
   await b.save();
   const amt = `₹${payment.amount.toLocaleString('en-IN')}`;
   if (payment.type === 'Advance') {
-    await notify(b.vendor.owner, { icon: 'inbox', title: `New booking request: ${b.customer.name}`, body: `${b.eventType} · ${b.date} · ${b.packageName}`, link: `booking:${b._id}` });
-    await notify(b.customer._id, { icon: 'check', title: 'Advance paid. Request sent!', body: `${b.vendor.name} usually replies within 24 hours.`, link: `booking:${b._id}` });
+    await notify(b.vendor.owner, { icon: 'inbox', title: `New booking request: ${b.customer.name}`, body: `${b.eventType} · ${b.date} · ${b.packageName}`, link: `booking:${b._id}`, email: true });
+    await notify(b.customer._id, { icon: 'check', title: 'Advance paid. Request sent!', body: `${b.vendor.name} usually replies within 24 hours.`, link: `booking:${b._id}`, email: true });
   } else {
     await notify(b.vendor.owner, { icon: 'card', title: `${b.customer.name} paid ${amt}`, body: b.code });
   }

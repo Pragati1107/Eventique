@@ -113,6 +113,7 @@
     S.role = u.role;
     S.user = { name: u.name, phone: u.phone, email: u.email || '', city: u.city || 'Lucknow', dob: u.dob || '', gender: u.gender || '', address: u.address || '', photo: u.photo || '', eventDate: u.eventDate || '', partner: u.partner || '', sid: String(u.id) };
     if (u.city) S.city = u.city;
+    S.settings.email = !(u.prefs && u.prefs.email === false);
   }
   const refresh = async (...fns) => { try { await Promise.all(fns.map((f) => f())); render(true); } catch (e) { fail(e); } };
 

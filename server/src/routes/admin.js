@@ -52,7 +52,7 @@ router.patch('/vendors/:id', asyncH(async (req, res) => {
   if (!['Approved', 'Rejected', 'Suspended', 'Pending'].includes(req.body.status)) throw new HttpError(400, 'Invalid status.');
   v.status = req.body.status; await v.save();
   const msg = { Approved: ['shield', 'Your profile is live!', 'Customers can now find and book you on Eventique.'], Rejected: ['x', 'Verification was not approved', str(req.body.reason, 200) || 'Please check your documents and try again.'], Suspended: ['alert', 'Your profile is paused', str(req.body.reason, 200) || 'Contact Eventique support.'] }[v.status];
-  if (msg) await notify(v.owner, { icon: msg[0], title: msg[1], body: msg[2] });
+  if (msg) await notify(v.owner, { icon: msg[0], title: msg[1], body: msg[2], email: true });
   res.json({ vendor: v });
 }));
 
@@ -77,7 +77,7 @@ router.post('/payments/:id/process', asyncH(async (req, res) => {
     const original = await Payment.findOne({ booking: p.booking, type: 'Advance', status: 'Received' });
     const r = await refund(original?.paymentId, p.amount);
     p.status = 'Refunded'; p.meta = { ...(p.meta || {}), refundId: r.id };
-    await notify(p.user, { icon: 'card', title: `Refund of ₹${p.amount.toLocaleString('en-IN')} processed`, body: 'It reaches your account in 5–7 working days.' });
+    await notify(p.user, { icon: 'card', title: `Refund of ₹${p.amount.toLocaleString('en-IN')} processed`, body: 'It reaches your account in 5–7 working days.', email: true });
   } else if (p.type === 'Payout') {
     // Bank transfer happens outside the app (or via RazorpayX). Record the reference here.
     p.status = 'Paid'; p.meta = { ...(p.meta || {}), reference: str(req.body.reference, 60) || 'manual' };

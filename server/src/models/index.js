@@ -19,7 +19,7 @@ const UserSchema = new Schema({
   status: { type: String, enum: ['Active', 'Blocked'], default: 'Active', index: true },
   favs: [{ type: ObjectId, ref: 'Vendor' }],
   budget: { type: Number, default: 900000 },
-  prefs: { lang: { type: String, default: 'en' }, theme: String, sms: { type: Boolean, default: true }, whatsapp: { type: Boolean, default: true }, email: { type: Boolean, default: false } },
+  prefs: { lang: { type: String, default: 'en' }, theme: String, sms: { type: Boolean, default: true }, whatsapp: { type: Boolean, default: true }, email: { type: Boolean, default: true } },
 }, opts);
 
 const OtpSchema = new Schema({

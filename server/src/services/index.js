@@ -48,23 +48,26 @@ function otpEmail(code, name) {
 <div style="padding:14px 24px;border-top:1px solid #ebdfe3;font-size:12px;color:#6f6068">Eventique · Weddings, events and vendors in one app</div></div></div>`;
   return { subject: `${code} is your Eventique verification code`, text, html };
 }
-async function sendEmailOtp(to, code, name) {
+async function sendEmailOtp(to, code, name) { return sendEmail(to, otpEmail(code, name), 'The OTP email'); }
+
+/** Send any email through the Apps Script relay. msg = { subject, html, text }. */
+async function sendEmail(to, msg, what = 'The email') {
   const { webhookUrl, secret, fromName } = config.otp.email;
   if (!webhookUrl || !secret) throw new HttpError(502, 'Email sending is not set up. Add EMAIL_WEBHOOK_URL and EMAIL_WEBHOOK_SECRET in Render.', 'EMAIL_SETUP');
   const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 20000);
   let j = {};
   try {
-    const r = await fetch(webhookUrl, { method: 'POST', redirect: 'follow', signal: ctrl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ secret, to, fromName, ...otpEmail(code, name) }) });
+    const r = await fetch(webhookUrl, { method: 'POST', redirect: 'follow', signal: ctrl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ secret, to, fromName, ...msg }) });
     const raw = await r.text(); try { j = JSON.parse(raw); } catch (e) { j = { ok: false, error: `HTTP ${r.status}: ${raw.slice(0, 160)}` }; }
   } catch (e) {
     console.error('[email] request failed:', e.message);
-    throw new HttpError(502, 'The OTP email could not be sent. Please try again.', 'EMAIL_FAILED');
+    throw new HttpError(502, `${what} could not be sent. Please try again.`, 'EMAIL_FAILED');
   } finally { clearTimeout(timer); }
   if (!j.ok) {
     console.error('[email] send failed:', j.error);
     if (/secret/i.test(j.error || '')) throw new HttpError(502, 'Email sender secret does not match. Check EMAIL_WEBHOOK_SECRET in Render and SECRET in the Apps Script.', 'EMAIL_SECRET');
     if (/quota|limit/i.test(j.error || '')) throw new HttpError(429, 'Daily email limit reached. Please try again tomorrow.', 'EMAIL_QUOTA');
-    throw new HttpError(502, 'The OTP email could not be sent. Please try again.', 'EMAIL_FAILED');
+    throw new HttpError(502, `${what} could not be sent. Please try again.`, 'EMAIL_FAILED');
   }
   return { sent: true };
 }
@@ -152,12 +155,31 @@ async function storeFile(buffer, mimetype, folder = 'misc') {
 let io = null;
 const setIO = (server) => { io = server; };
 const emitTo = (userId, event, payload) => { if (io && userId) io.to(`user:${userId}`).emit(event, payload); };
-async function notify(userIds, { icon = 'bell', title, body = '', link = '' }) {
-  const { Notification } = require('../models');
+function updateEmail(name, title, body) {
+  const app = config.storage.publicUrl; const hi = name ? `Hi ${escHtml(String(name).split(' ')[0])},` : 'Hi,';
+  const text = `${hi}\n\n${title}\n${body}\n\nOpen Eventique: ${app}\n\nYou get these emails for your bookings. You can turn them off in Profile > Settings.\nTeam Eventique`;
+  const html = `<div style="background:#f7f2f3;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;color:#241820"><div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #ebdfe3">
+<div style="background:#8b1e3f;padding:18px 24px;color:#ffffff;font-size:20px;font-family:Georgia,serif">Eventique</div>
+<div style="padding:24px"><p style="margin:0 0 12px;font-size:15px">${hi}</p><p style="margin:0 0 8px;font-size:18px;font-weight:bold;color:#5c1229">${escHtml(title)}</p>
+<p style="margin:0 0 20px;font-size:15px;color:#3d2f36">${escHtml(body)}</p>
+<a href="${app}" style="display:inline-block;background:#8b1e3f;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:bold">Open Eventique</a></div>
+<div style="padding:14px 24px;border-top:1px solid #ebdfe3;font-size:12px;color:#6f6068">You get these emails for your bookings. You can turn them off in Profile &gt; Settings. · <a href="${app}/privacy" style="color:#6f6068">Privacy</a></div></div></div>`;
+  return { subject: `${title} · Eventique`, text, html };
+}
+
+/** In-app notification + live push. With email: true it is also emailed to users who have an email and have not turned emails off. */
+async function notify(userIds, { icon = 'bell', title, body = '', link = '', email = false }) {
+  const { Notification, User } = require('../models');
   const ids = [].concat(userIds).filter(Boolean).map(String);
   if (!ids.length) return [];
   const docs = await Notification.insertMany(ids.map((user) => ({ user, icon, title, body, link })));
   docs.forEach((d) => emitTo(String(d.user), 'notification', d.toJSON()));
+  if (email && config.otp.email.webhookUrl && config.otp.email.secret) {
+    User.find({ _id: { $in: ids }, email: { $nin: [null, ''] }, 'prefs.email': { $ne: false } }, 'name email').lean()
+      .then((users) => Promise.allSettled(users.map((u) => sendEmail(u.email, updateEmail(u.name, title, body), 'The update email'))))
+      .then((rs) => rs && rs.filter((r) => r.status === 'rejected').forEach((r) => console.warn('[email] update not sent:', r.reason && r.reason.message)))
+      .catch((e) => console.warn('[email] update lookup failed:', e.message));
+  }
   return docs;
 }
 
@@ -169,4 +191,4 @@ async function settings() {
   return { commission: s?.commission ?? d.commission, gst: s?.gst ?? d.gst, advance: s?.advance ?? d.advance, freeCancelHours: s?.freeCancelHours ?? d.freeCancelHours, maintenance: !!s?.maintenance };
 }
 
-module.exports = { sendSms, sendEmailOtp, verifyStart, verifyCheck, createOrder, verifyPayment, mockSign, refund, storeFile, setIO, emitTo, notify, settings, makeCode, UPLOAD_DIR };
+module.exports = { sendSms, sendEmailOtp, sendEmail, verifyStart, verifyCheck, createOrder, verifyPayment, mockSign, refund, storeFile, setIO, emitTo, notify, settings, makeCode, UPLOAD_DIR };

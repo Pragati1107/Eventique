@@ -72,7 +72,7 @@ router.patch('/:id/status', asyncH(async (req, res) => {
     Completed: [b.customer._id, 'star', `How was your ${b.eventType.toLowerCase()}?`, `Review ${v.name} to help other families`],
     Cancelled: [r === 'customer' ? v.owner : b.customer._id, 'x', r === 'customer' ? `${b.customer.name} cancelled a booking` : 'Your booking was cancelled', `${b.code} · ${b.date}${refund ? ` · refund ₹${refund.toLocaleString('en-IN')}` : ''}`],
   }[to];
-  if (msgs) await notify(msgs[0], { icon: msgs[1], title: msgs[2], body: msgs[3], link: `booking:${b._id}` });
+  if (msgs) await notify(msgs[0], { icon: msgs[1], title: msgs[2], body: msgs[3], link: `booking:${b._id}`, email: true });
   emitTo(String(b.customer._id), 'booking', { id: String(b._id), status: to }); emitTo(String(v.owner), 'booking', { id: String(b._id), status: to });
   activity('list', `<b>${v.name}</b> booking ${b.code} is now ${to.toLowerCase()}`);
   res.json({ booking: b, refund });
